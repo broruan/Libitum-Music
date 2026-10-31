@@ -47,6 +47,7 @@ async function dispatch(method: string, args: any) {
     case 'catalog.detail': return provider.detail(args.kind, args.id, args.offset)
     case 'catalog.allTracks': return provider.allTracks(args.kind, args.id)
     case 'catalog.lyrics': return provider.lyrics(args.id)
+    case 'catalog.artistAlbums': return provider.artistAlbums(args.id,args.offset)
     case 'catalog.comments': return provider.comments(args.id, args.offset)
     case 'home.section': return provider.home(args.section)
     case 'library.list': return provider.library(args.kind, args.offset)

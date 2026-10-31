@@ -1,11 +1,13 @@
 import type { ExperienceSettings } from './types'
 import { defaultPeq, validPeq } from './peq'
 export function experienceDefaults(): ExperienceSettings {
-  return { commentsEnabled: true, rotateCover: false, visualMode: 'cover', wallpaperScope: 'player', wallpaper: null, wallpaperBrightness: 0.45, wallpaperOverlay: 0.2, wallpaperBlur: 12, panelBlur: 12, floatingEnabled: false, peq: defaultPeq(), spectrum: { enabled: false, color: '#ef6079', secondaryColor: '#9975e8', gradient: true } }
+  return { commentsEnabled: true, autoWallpaperText: false, backgroundColor: '', fontColor: '', fontFamily: '', rotateCover: false, visualMode: 'cover', wallpaperScope: 'player', wallpaper: null, wallpaperBrightness: 0.45, wallpaperOverlay: 0.2, wallpaperBlur: 12, panelBlur: 12, floatingEnabled: false, peq: defaultPeq(), spectrum: { enabled: false, color: '#ef6079', secondaryColor: '#9975e8', gradient: true } }
 }
 export function normalizeExperience(value: any): ExperienceSettings {
   const defaults = experienceDefaults(), result = { ...defaults }
-  for (const key of ['commentsEnabled', 'rotateCover', 'floatingEnabled'] as const) if (typeof value?.[key] === 'boolean') result[key] = value[key]
+  for (const key of ['commentsEnabled', 'autoWallpaperText', 'rotateCover', 'floatingEnabled'] as const) if (typeof value?.[key] === 'boolean') result[key] = value[key]
+  for(const key of ['backgroundColor','fontColor'] as const) if(typeof value?.[key]==='string'&&(/^#[a-f0-9]{6}$/i.test(value[key])||value[key]==='')) result[key]=value[key]
+  if(typeof value?.fontFamily==='string'&&value.fontFamily.length<=120&&/^[\p{L}\p{N} .,_'-]*$/u.test(value.fontFamily)) result.fontFamily=value.fontFamily
   if (['cover', 'wallpaper'].includes(value?.visualMode)) result.visualMode = value.visualMode
   if (['player', 'app'].includes(value?.wallpaperScope)) result.wallpaperScope = value.wallpaperScope
   if (Number.isFinite(value?.wallpaperBrightness)) result.wallpaperBrightness = Math.max(0.1, Math.min(1, value.wallpaperBrightness))

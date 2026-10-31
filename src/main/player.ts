@@ -23,6 +23,10 @@ export class Player {
   private listened = 0
   private lastTime = 0
   private lastEmit = 0
+  private lastPositionEvent = 0
+  private seekRevision = 0
+  private progressTimer: ReturnType<typeof setInterval> | null = null
+  private pollingProgress = false
   private deviceRevision = 0
   private deviceKey: string
   private peqSettings: PeqSettings
@@ -43,6 +47,26 @@ export class Player {
     this.state.duration = (this.current()?.durationMs || 0) / 1000
     if (['list', 'one', 'shuffle'].includes(value.repeat)) this.state.repeat = value.repeat
     this.state.status = this.current() ? 'paused' : 'idle'
+  }
+  private watchProgress() {
+    if(this.progressTimer)return
+    this.progressTimer=setInterval(()=>void this.refreshProgress(),500)
+    this.progressTimer.unref?.()
+  }
+  private updatePosition(position:number) {
+    const delta=position-this.lastTime
+    if(this.state.status==='playing'&&delta>0&&delta<3)this.listened+=delta
+    this.lastTime=position;this.state.position=position
+  }
+  private async refreshProgress() {
+    if(this.pollingProgress||!this.loaded||this.state.status!=='playing'||!this.mpv.running||Date.now()-this.lastPositionEvent<750)return
+    this.pollingProgress=true;const generation=this.generation,seek=this.seekRevision
+    try{
+      const position=await this.mpv.command(['get_property','time-pos'])
+      if(generation!==this.generation||seek!==this.seekRevision||!this.loaded||this.state.status!=='playing')return
+      if(typeof position==='number'&&Number.isFinite(position)&&position>=0){this.updatePosition(position);this.changed()}
+    }catch{/* The process-exit handler reports player failure; do not fabricate elapsed time. */}
+    finally{this.pollingProgress=false}
   }
   private current() { return this.state.queue[this.state.index] }
   private changed(persist = false) { this.emit(this.snapshot()); if (persist) this.save() }
@@ -164,10 +188,8 @@ export class Player {
   private async onEvent(event: any) {
     if (event.event === 'property-change') {
       if (event.name === 'audio-device-list') { await this.updateDevices(event.data); return }
-      if (event.name === 'time-pos' && typeof event.data === 'number') {
-        const delta = event.data - this.lastTime
-        if (this.state.status === 'playing' && delta > 0 && delta < 3) this.listened += delta
-        this.lastTime = event.data; this.state.position = event.data
+      if (event.name === 'time-pos' && typeof event.data === 'number' && Number.isFinite(event.data) && this.loaded) {
+        this.lastPositionEvent=Date.now();this.updatePosition(event.data)
       }
       if (event.name === 'duration' && typeof event.data === 'number') this.state.duration = event.data
       if (event.name === 'pause' && typeof event.data === 'boolean' && this.loaded && this.state.status !== 'loading') this.state.status = event.data ? 'paused' : 'playing'
@@ -182,7 +204,7 @@ export class Player {
       await this.mpv.command(['set_property', 'pause', load.paused])
       if (load.generation !== this.generation) return
       this.loading = null; this.loaded = true; this.failedIds.clear()
-      this.state.status = load.paused ? 'paused' : 'playing'; this.changed(true)
+      this.state.status = load.paused ? 'paused' : 'playing'; this.lastPositionEvent=Date.now();this.watchProgress();this.changed(true)
     }
     if (event.event === 'end-file') {
       if (event.reason === 'eof') { this.report(); this.loaded = false; await this.next(true) }
@@ -201,6 +223,7 @@ export class Player {
     await this.mpv.command(['set_property', 'pause', paused]); this.state.status = paused ? 'paused' : 'playing'; this.changed(true)
   }
   async seek(seconds: number) {
+    this.seekRevision++
     const position = Math.max(0, Math.min(seconds, this.state.duration || seconds))
     if (this.loaded) await this.mpv.command(['seek', position, 'absolute+exact'])
     this.state.position = position; this.lastTime = position; this.changed(true)
@@ -273,11 +296,12 @@ export class Player {
     if (id && seconds >= 10 && !this.local) void this.backend.call('scrobble', { id, seconds }).catch(() => {})
   }
   async stop(clear = true) {
+    if(this.progressTimer)clearInterval(this.progressTimer);this.progressTimer=null
     this.report(); this.generation++; this.loading = null; this.loaded = false; this.local = null
     if (this.mpv.running) await this.mpv.command(['stop']).catch(() => {})
     if (clear) this.state.queue = []
     this.state.index = this.state.queue.length ? 0 : -1; this.state.status = 'idle'; this.state.radio = null; this.state.position = 0; this.state.error = null; this.state.actualQuality = ''; this.changed(true)
   }
-  async dispose() { this.generation++; await this.mpv.stop() }
+  async dispose() { if(this.progressTimer)clearInterval(this.progressTimer);this.progressTimer=null;this.generation++; await this.mpv.stop() }
   async restart() { this.generation++; this.loaded = false; this.loading = null; await this.mpv.stop(); if (this.current()) this.state.status = 'paused'; await this.initialize() }
 }

@@ -72,3 +72,13 @@ describe('NetEase provider contract', () => {
     expect((await provider.search('音乐', 'song', 0)).tracks).toHaveLength(6)
   })
 })
+
+it('loads artist album pages separately from popular tracks',async()=>{
+  const api=createFixtureApi(),provider=new NeteaseProvider(api,{wait:async()=>{}})
+  const first=await provider.artistAlbums('301',0),second=await provider.artistAlbums('301',30)
+  expect(first.albums).toHaveLength(30);expect(first.more).toBe(true);expect(first.albums[0]).toMatchObject({kind:'album',id:'201',title:'一起听见'})
+  expect(second.albums).toHaveLength(3);expect(second.more).toBe(false)
+  api.artist_album=async()=>{throw {body:{code:502}}}
+  await expect(provider.artistAlbums('302',0)).rejects.toMatchObject({code:'NETWORK'})
+  expect((await provider.detail('artist','301')).tracks).toHaveLength(6)
+})

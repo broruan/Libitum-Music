@@ -13,7 +13,7 @@ it('opens real homepage playlists, initializes playback, and polls one unscanned
   const directory = await mkdtemp(join(tmpdir(), 'libitum-network-')), runtime = join(directory, 'runtime')
   const previousTmp = process.env.TMPDIR, previousOrder = getDefaultResultOrder(), previousFamily = getDefaultAutoSelectFamily()
   const spies = ['log', 'error', 'warn', 'info', 'debug'].map(name => vi.spyOn(console, name as 'log').mockImplementation(() => {}))
-  const report = { playlistsOpened: 0, searchSongs: 0, streamsResolved: 0, qrWaiting: false, upstreamCalls: 0, transientFailures: 0 }
+  const report = { playlistsOpened: 0, searchSongs: 0, streamsResolved: 0, artistAlbums:0, qrWaiting: false, upstreamCalls: 0, transientFailures: 0 }
   try {
     await mkdir(runtime, { mode: 0o700 }); process.env.TMPDIR = runtime
     setDefaultResultOrder('ipv4first'); setDefaultAutoSelectFamily(true)
@@ -37,6 +37,7 @@ it('opens real homepage playlists, initializes playback, and polls one unscanned
     }
     report.searchSongs = (await provider.search('周杰伦', 'song', 0)).tracks.length
     expect(report.searchSongs).toBeGreaterThan(0)
+    const albums=await provider.artistAlbums('6452',0);expect(albums.albums.length).toBeGreaterThan(0);report.artistAlbums=albums.albums.length
     const comments=await provider.comments('33894312',0)
     expect(comments.total).toBeGreaterThan(0);expect(comments.items.length+comments.hot.length).toBeGreaterThan(0)
     // This public song is queried under normal anonymous permissions; no audio is downloaded.

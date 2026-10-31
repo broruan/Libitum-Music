@@ -39,6 +39,7 @@ export function createFixtureApi(audioUrl = '', qrScenario = ''): ApiModule {
     song_detail: p => response({ songs: songs.filter(song => String(p.ids).split(',').includes(String(song.id))) }),
     album: () => response({ album, songs }),
     album_detail_dynamic: () => response({ isSub: albumSubscribed }),
+    artist_album:p=>response({artist:{id:301,name:'Libitum music测试歌手'},hotAlbums:Array.from({length:Math.min(30,33-Number(p.offset||0))},(_,i)=>({...album,id:201+Number(p.offset||0)+i,name:Number(p.offset||0)+i===0?'一起听见':`歌手测试专辑 ${Number(p.offset||0)+i+1}`})),more:Number(p.offset||0)+30<33}),
     artists: () => response({ artist: { id: 301, name: 'Libitum music测试歌手' }, hotSongs: songs }),
     recommend_songs: () => response({ data: { dailySongs: songs } }),
     recommend_resource: () => response({ recommend: [playlist()] }), personalized: () => response({ result: [playlist()] }),

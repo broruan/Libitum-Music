@@ -12,7 +12,7 @@ class FakeMpv extends EventEmitter {
   commands: unknown[][] = []
   async start() {}
   async stop() { this.running = false }
-  async command(command: unknown[]) {
+  async command(command: unknown[]):Promise<any> {
     this.commands.push(command)
     if (command[0] === 'get_property' && command[1] === 'audio-device-list') return [{ name: 'auto', description: 'Default' }, { name: 'pulse/headphones', description: 'Headphones' }]
     if (command[0] === 'get_property' && command[1] === 'path') return this.path
@@ -79,5 +79,30 @@ describe('player state transitions', () => {
     const pending = player.radio({ mode: 'EXPLORE' })
     await player.stop(); finish([track(1)]); await pending
     expect(player.state.queue).toHaveLength(0); expect(player.state.radio).toBeNull()
+  })
+})
+
+describe('authoritative playback progress recovery',()=>{
+  it('reads actual mpv time if position notifications stop and never advances a paused clock',async()=>{
+    vi.useFakeTimers()
+    const mpv=new FakeMpv(),original=mpv.command.bind(mpv);let position=2
+    mpv.command=async command=>command[0]==='get_property'&&command[1]==='time-pos'?position:original(command)
+    const emit=vi.fn(),player=new Player(mpv as unknown as Mpv,{call:async()=>({url:'https://example.com/audio',quality:'exhigh'})} as any,settings,emit,()=>{},()=>{})
+    try{
+      await player.play([track(1)]);mpv.emit('event',{event:'file-loaded'});await flush()
+      mpv.emit('event',{event:'property-change',name:'time-pos',data:2});await flush()
+      position=5;await vi.advanceTimersByTimeAsync(1100);expect(player.state.position).toBe(5)
+      await player.toggle();position=9;await vi.advanceTimersByTimeAsync(1500);expect(player.state.position).toBe(5)
+    }finally{await player.dispose();vi.useRealTimers()}
+  })
+  it('discards a late clock read after a seek',async()=>{
+    vi.useFakeTimers()
+    const mpv=new FakeMpv(),original=mpv.command.bind(mpv);let finish!:(value:number)=>void
+    mpv.command=async command=>command[0]==='get_property'&&command[1]==='time-pos'?new Promise<number>(resolve=>{finish=resolve}):original(command)
+    const player=new Player(mpv as unknown as Mpv,{call:async()=>({url:'https://example.com/audio',quality:'exhigh'})} as any,settings,()=>{},()=>{},()=>{})
+    try{
+      await player.play([track(1)]);mpv.emit('event',{event:'file-loaded'});await flush()
+      await vi.advanceTimersByTimeAsync(1000);await player.seek(23);finish(3);await flush();expect(player.state.position).toBe(23)
+    }finally{await player.dispose();vi.useRealTimers()}
   })
 })

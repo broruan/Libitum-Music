@@ -1,21 +1,46 @@
 import { useEffect, useRef, useState } from 'react'
 import { Check, Heart, ListPlus, LoaderCircle, MessageCircle, SlidersHorizontal, Waves, Palette, X } from 'lucide-react'
+import { SAFE_WALLPAPER_PALETTE, wallpaperPalette, type WallpaperPalette } from '../../shared/wallpaper-palette'
 import type { PeqSettings, SpectrumFrame } from '../../shared/types'
 import { defaultPeq, validPeq } from '../../shared/peq'
 import { Busy, Cover, Empty, ErrorState, IconButton, Modal, Pagination } from './components'
 import { BlurControls } from './VisualControls'
 import { request, useApp, useResource } from './state'
 
-export function Background({ playerPage=false }: { playerPage?: boolean }) {
-  const {data}=useApp(),settings=data.settings,video=useRef<HTMLVideoElement>(null)
-  const active=settings.visualMode==='wallpaper' && !!settings.wallpaper && (settings.wallpaperScope==='app' || playerPage)
-  const src=settings.wallpaper ? `music-app://bundle/user-media/${settings.wallpaper.id}` : ''
+export function Background({playerPage=false,onPalette}:{playerPage?:boolean;onPalette:(palette:WallpaperPalette)=>void}) {
+  const {data}=useApp(),settings=data.settings,video=useRef<HTMLVideoElement>(null),image=useRef<HTMLImageElement>(null),background=useRef<HTMLDivElement>(null),last=useRef<WallpaperPalette>(SAFE_WALLPAPER_PALETTE)
+  const active=settings.visualMode==='wallpaper'&&!!settings.wallpaper&&(settings.wallpaperScope==='app'||playerPage)
+  const src=settings.wallpaper?`music-app://bundle/user-media/${settings.wallpaper.id}`:''
   useEffect(()=>{
-    const update=()=>{ const element=video.current; if(!element)return; if(active && !document.hidden && data.player.status==='playing') void element.play().catch(()=>{}); else element.pause() }
-    update(); document.addEventListener('visibilitychange',update);return()=>document.removeEventListener('visibilitychange',update)
+    const update=()=>{const element=video.current;if(!element)return;if(active&&!document.hidden&&data.player.status==='playing')void element.play().catch(()=>{});else element.pause()}
+    update();document.addEventListener('visibilitychange',update);return()=>document.removeEventListener('visibilitychange',update)
   },[active,src,data.player.status])
+  useEffect(()=>{
+    if(!active)return
+    const canvas=document.createElement('canvas');canvas.width=32;canvas.height=32
+    const context=canvas.getContext('2d',{willReadFrequently:true});if(!context)return
+    const sample=()=>{
+      if(document.hidden)return
+      const media=video.current||image.current,box=background.current?.getBoundingClientRect()
+      const width=video.current?.videoWidth||image.current?.naturalWidth||0,height=video.current?.videoHeight||image.current?.naturalHeight||0
+      if(!media||!box||!width||!height)return
+      try{
+        const scale=Math.max(box.width/width,box.height/height)*1.08,sw=box.width/scale,sh=box.height/scale
+        context.clearRect(0,0,32,32);context.drawImage(media,(width-sw)/2,(height-sh)/2,sw,sh,0,0,32,32)
+        const manual=settings.autoWallpaperText?undefined:(settings.fontColor||getComputedStyle(document.documentElement).getPropertyValue('--text').trim())
+        const palette=wallpaperPalette(context.getImageData(0,0,32,32).data,settings.wallpaperBrightness,settings.wallpaperOverlay,last.current,manual)
+        if(JSON.stringify(palette)!==JSON.stringify(last.current)){last.current=palette;onPalette(palette)}
+      }catch{onPalette(SAFE_WALLPAPER_PALETTE)}
+    }
+    const media=video.current||image.current
+    media?.addEventListener('load',sample);media?.addEventListener('loadeddata',sample);media?.addEventListener('seeked',sample)
+    const system=matchMedia('(prefers-color-scheme: dark)');system.addEventListener('change',sample)
+    window.addEventListener('resize',sample);document.addEventListener('visibilitychange',sample)
+    sample();const timer=setInterval(sample,2000)
+    return()=>{clearInterval(timer);media?.removeEventListener('load',sample);media?.removeEventListener('loadeddata',sample);media?.removeEventListener('seeked',sample);system.removeEventListener('change',sample);window.removeEventListener('resize',sample);document.removeEventListener('visibilitychange',sample)}
+  },[active,src,settings.wallpaperBrightness,settings.wallpaperOverlay,settings.autoWallpaperText,settings.fontColor,settings.theme,onPalette])
   if(!active)return null
-  return <div className="music-background" aria-hidden="true" style={{'--wallpaper-brightness':settings.wallpaperBrightness,'--wallpaper-overlay':settings.wallpaperOverlay} as React.CSSProperties}>{settings.wallpaper!.kind==='video'?<video ref={video} src={src} muted loop playsInline preload="auto"/>:<img src={src} alt=""/>}<div className="wallpaper-shade"/></div>
+  return <div ref={background} className="music-background" aria-hidden="true" style={{'--wallpaper-brightness':settings.wallpaperBrightness,'--wallpaper-overlay':settings.wallpaperOverlay} as React.CSSProperties}>{settings.wallpaper!.kind==='video'?<video ref={video} src={src} muted loop playsInline preload="auto"/>:<img ref={image} src={src} alt=""/>}<div className="wallpaper-shade"/><div className="wallpaper-contrast-shade"/></div>
 }
 export function PeqEditor() {
   const {data,act}=useApp(),[draft,setDraft]=useState<PeqSettings>(()=>structuredClone(data.settings.peq)),[busy,setBusy]=useState(false),[error,setError]=useState(''),[imported,setImported]=useState(false)
@@ -71,7 +96,7 @@ export function SpectrumView(){
   return <div className="spectrum-view"><canvas ref={canvas} aria-label="实时音乐频谱"/>{frame.status==='unavailable'&&<p className="muted small-text">{frame.reason}</p>}</div>
 }
 export function NowPlayingPage(){
-  const {data,act,likedIds,liking,toggleLike,addToPlaylist,setPeqOpen}=useApp(),track=data.player.queue[data.player.index]
+  const {data,act,likedIds,liking,toggleLike,addToPlaylist,setPeqOpen,navigate}=useApp(),track=data.player.queue[data.player.index]
   const [commentsOpen,setCommentsOpen]=useState(false),[visualOpen,setVisualOpen]=useState(false),[lyricsOpen,setLyricsOpen]=useState(false)
   const commentButton=useRef<HTMLButtonElement>(null),visualButton=useRef<HTMLButtonElement>(null)
   const lyrics=useResource(()=>request('catalog.lyrics',{id:track!.id}),[track?.id],!!track)
@@ -98,7 +123,7 @@ export function NowPlayingPage(){
     <div className={`listening-layout ${opened?'with-comments':''}`}>
       <section className={`listening-stage ${lyricsOpen?'lyrics-open':''} ${data.settings.spectrum.enabled?'has-spectrum':''}`} aria-label="歌曲封面与信息">
         <div className="cover-stage"><div className={`album-disc ${data.settings.rotateCover?'rotating':''} ${data.player.status==='playing'?'is-playing':''}`}><Cover url={track.coverUrl} title={track.title} id={track.id}/></div></div>
-        <div className="listening-meta"><h1>{track.title}</h1><p className="muted">{track.artists.map(a=>a.name).join(' / ')} · {track.album.title}</p>
+        <div className="listening-meta"><h1>{track.title}</h1><p className="muted">{track.artists.map((artist,i)=><span key={`${artist.id}-${i}`}>{i>0&&' / '}{/^[1-9]\d*$/.test(artist.id)?<button className="text-link" aria-label={`查看歌手 ${artist.name}`} onClick={()=>navigate({type:'detail',kind:'artist',id:artist.id})}>{artist.name}</button>:artist.name}</span>)} · {track.album.title}</p>
           <div className="listening-actions"><button className="button subtle" disabled={liking.has(track.id)} onClick={()=>void toggleLike(track)}><Heart size={16} fill={likedIds.has(track.id)?'currentColor':'none'}/>{likedIds.has(track.id)?'已喜欢':'喜欢'}</button><button className="button subtle" onClick={()=>addToPlaylist(track)}><ListPlus size={17}/>加入歌单</button><button className="button subtle" aria-expanded={lyricsOpen} aria-controls="listening-lyrics" onClick={()=>setLyricsOpen(!lyricsOpen)}>歌词</button></div>
         </div>
         <SpectrumView/>

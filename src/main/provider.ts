@@ -1,5 +1,5 @@
 import { MusicError } from '../shared/errors'
-import type { CollectionKind, CommentPage, Detail, Diagnostic, HomeResult, HomeSection, LibraryKind, LibraryResult, Lyrics, Playlist, Quality, RadioSpec, SearchKind, SearchResult, Stream, SubscriptionResult, Track, User } from '../shared/types'
+import type { Album, CollectionKind, CommentPage, Detail, Diagnostic, HomeResult, HomeSection, LibraryKind, LibraryResult, Lyrics, Playlist, Quality, RadioSpec, SearchKind, SearchResult, Stream, SubscriptionResult, Track, User } from '../shared/types'
 import { normalizeCollection, normalizeStream, normalizeTrack } from './normalize'
 import { mergeCookies, neteaseError } from './netease-errors'
 import { createHash } from 'node:crypto'
@@ -17,6 +17,7 @@ export interface MusicProvider {
   resolve(id: string, quality: Quality, download?: boolean): Promise<Stream>
   radio(spec: RadioSpec): Promise<Track[]>
   comments(id: string, offset: number): Promise<CommentPage>
+  artistAlbums(id:string,offset:number):Promise<{albums:Album[];more:boolean}>
   writablePlaylists(offset: number): Promise<{ collections: Playlist[]; more: boolean }>
   addToPlaylist(id: string, trackId: string): Promise<{ alreadyPresent: boolean }>
   subscribe(kind: 'album' | 'playlist', id: string, subscribe: boolean): Promise<SubscriptionResult>
@@ -197,6 +198,10 @@ export class NeteaseProvider implements MusicProvider {
     if (missing.length) for (const track of (await this.request('song_detail', { ids: missing.join(',') })).body.songs || []) included.set(String(track.id), track)
     const tracks = ids.length ? ids.map((trackId: string | number) => included.get(String(trackId))).filter(Boolean) : (playlist.tracks || []).slice(offset, offset + 100)
     return { collection: normalizeCollection(playlist, kind, this.user?.id), tracks: tracks.map(normalizeTrack), total: Number(playlist.trackCount || playlist.trackIds?.length || tracks.length) }
+  }
+  async artistAlbums(id:string,offset:number):Promise<{albums:Album[];more:boolean}> {
+    const {body}=await this.request('artist_album',{id,offset,limit:30})
+    return {albums:(body.hotAlbums||[]).map((album:any)=>normalizeCollection({...album,artist:album.artist||body.artist},'album',this.user?.id) as Album),more:Boolean(body.more)}
   }
   async allTracks(kind: CollectionKind, id: string): Promise<Track[]> {
     const first = await this.detail(kind, id, 0)

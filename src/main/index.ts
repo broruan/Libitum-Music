@@ -1,4 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, net, protocol, safeStorage, screen, shell } from 'electron'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
 import { mkdir, access, readFile, stat } from 'node:fs/promises'
 import { join, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -114,7 +116,7 @@ async function handle(command: Command, args: any): Promise<any> {
       if(epoch!==authEpoch) throw new MusicError('SESSION_CHANGED','账号状态已改变，请重新加载。')
       send({type:'library',data:null}); return value
     }
-    case 'catalog.search': case 'catalog.detail': case 'catalog.allTracks': case 'catalog.lyrics': case 'catalog.comments': case 'home.section': case 'library.list': case 'library.subscription': case 'library.writablePlaylists': case 'library.diagnostics': {
+    case 'catalog.search': case 'catalog.detail': case 'catalog.allTracks': case 'catalog.lyrics': case 'catalog.comments': case 'catalog.artistAlbums': case 'home.section': case 'library.list': case 'library.subscription': case 'library.writablePlaylists': case 'library.diagnostics': {
       const epoch = authEpoch
       const value = await backend.call(command, args)
       if (epoch !== authEpoch) throw new MusicError('SESSION_CHANGED', '账号状态已改变，请重新加载。')
@@ -140,6 +142,9 @@ async function handle(command: Command, args: any): Promise<any> {
       await access(task.path)
       if (command === 'downloads.reveal') { shell.showItemInFolder(task.path); return }
       return player.playDownload(task)
+    }
+    case 'settings.fonts': {
+      try {const {stdout}=await promisify(execFile)('fc-list',['--format=%{family}\n'],{timeout:2000,maxBuffer:1_000_000});return [...new Set(stdout.split(/[\n,]/).map(s=>s.trim()).filter(s=>s.length>0&&s.length<=120&&/^[\p{L}\p{N} .,_'-]+$/u.test(s)))].sort((a,b)=>a.localeCompare(b)).slice(0,600)} catch{return []}
     }
     case 'settings.update': {
       const changedMpv = args.mpvPath && args.mpvPath !== settings.mpvPath

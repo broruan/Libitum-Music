@@ -79,3 +79,25 @@
 @media(max-height:740px){.listening-scroll>.page-content{padding:12px 18px}.now-playing-page .listening-stage{padding:6px 12px}.listening-meta{margin-top:6px;padding:8px}.now-playing-page .immersive-heading{margin-bottom:6px}.now-playing-page .plain-lyrics{flex-basis:72px}.now-playing-page .spectrum-view{height:60px}.now-playing-page .spectrum-view canvas{height:38px}}
 
 .has-wallpaper .immersive-heading{padding:8px 12px;border-radius:12px}
+
+/* One continuous wallpaper canvas; readable ink is derived without changing the app theme. */
+:root{--theme-text:var(--text);--theme-secondary:var(--secondary);--theme-muted:var(--muted);--theme-accent:var(--accent);--theme-accent-soft:var(--accent-soft);--theme-accent-hover:var(--accent-hover);--theme-line:var(--line);--theme-hover:var(--hover);--theme-bg:var(--bg)}
+.app-shell{color:var(--text)}
+.wallpaper-contrast-shade{position:absolute;inset:0;background:rgb(var(--wallpaper-veil,255 255 255));opacity:var(--wallpaper-veil-opacity,.86)}
+.has-wallpaper{--text:var(--wallpaper-ink);--secondary:var(--wallpaper-secondary);--muted:var(--wallpaper-secondary);--accent:var(--wallpaper-accent);--accent-soft:rgb(var(--wallpaper-veil)/.22);--hover:rgb(var(--wallpaper-veil)/.18);--line:rgb(127 127 127/.25)}
+.has-wallpaper :is(.sidebar,.topbar,.playback-bar){background:transparent;backdrop-filter:blur(var(--panel-blur,12px));color:var(--text)}
+.has-wallpaper .sidebar{border-right-color:rgb(var(--wallpaper-veil)/.12)}
+:is(.has-wallpaper,.custom-background) :is(.settings-card,.settings-nav,.immersive-heading,.song-comments,.visual-popover,.listening-meta,.plain-lyrics,.modal,.playback-panel,.page-heading,.button,.search-box,.select,.input,.main-play,.feature-card,.header-avatar,.avatar){--text:var(--theme-text);--secondary:var(--theme-secondary);--muted:var(--theme-muted);--accent:var(--theme-accent);--accent-soft:var(--theme-accent-soft);--accent-hover:var(--theme-accent-hover);--line:var(--theme-line);--hover:var(--theme-hover);--bg:var(--theme-bg);color:var(--text)}
+.has-wallpaper .playback-panel{background:rgb(var(--panel-rgb)/.96);backdrop-filter:blur(var(--panel-blur,12px))}
+.has-wallpaper .nav-item.selected{background:rgb(var(--wallpaper-veil)/.22);color:var(--accent)}
+.has-wallpaper .nav-item:hover,.has-wallpaper .icon-button:hover{background:rgb(var(--wallpaper-veil)/.18)}
+.has-wallpaper .collection-card,.has-wallpaper .section-heading,.has-wallpaper .page-footer{color:var(--text)}
+.has-wallpaper .collection-card strong,.has-wallpaper .collection-card>span{color:inherit}
+.has-wallpaper .collection-card:hover strong{color:var(--accent)}
+.custom-appearance{border-top:1px solid var(--line);margin-top:22px;padding-top:20px}
+.custom-appearance h3{font-size:14px;margin-bottom:6px}
+.custom-appearance .font-choice{width:min(280px,55%)}
+.custom-appearance .color-controls{align-items:center;gap:12px}
+
+.custom-background:not(.has-wallpaper) :is(.sidebar,.topbar,.playback-bar){background:var(--bg)}
+.app-shell.custom-background{background:var(--bg)}

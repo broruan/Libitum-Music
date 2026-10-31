@@ -42,7 +42,7 @@ export interface MediaImportState { status: 'idle' | 'working' | 'completed' | '
 export interface SpectrumFrame { bins: number[]; status: 'active' | 'idle' | 'unavailable'; reason?: string }
 export interface MiniState { track: Track | null; status: PlayerState['status']; position: number; duration: number; volume: number; liked: boolean }
 export interface ExperienceSettings {
-  commentsEnabled: boolean; rotateCover: boolean; visualMode: 'cover' | 'wallpaper'; wallpaperScope: 'player' | 'app'
+  commentsEnabled: boolean; autoWallpaperText: boolean; backgroundColor: string; fontColor: string; fontFamily: string; rotateCover: boolean; visualMode: 'cover' | 'wallpaper'; wallpaperScope: 'player' | 'app'
   wallpaper: Wallpaper | null; wallpaperBrightness: number; wallpaperOverlay: number; wallpaperBlur: number; panelBlur: number; floatingEnabled: boolean
   floatingBounds?: { x: number; y: number; width: number; height: number }
   peq: PeqSettings; spectrum: { enabled: boolean; color: string; secondaryColor: string; gradient: boolean }
@@ -75,6 +75,7 @@ export interface CommandMap {
   'catalog.detail': { args: { kind: CollectionKind; id: string; offset: number }; result: Detail }
   'catalog.allTracks': { args: { kind: CollectionKind; id: string }; result: Track[] }
   'catalog.lyrics': { args: { id: string }; result: Lyrics }
+  'catalog.artistAlbums': {args:{id:string;offset:number};result:{albums:Album[];more:boolean}}
   'catalog.comments': { args: { id: string; offset: number }; result: CommentPage }
   'home.section': { args: { section: HomeSection }; result: HomeResult }
   'library.list': { args: { kind: LibraryKind; offset: number }; result: LibraryResult }
@@ -102,7 +103,8 @@ export interface CommandMap {
   'downloads.retry': { args: { id: string; quality?: Quality }; result: void }
   'downloads.reveal': { args: { id: string }; result: void }
   'downloads.play': { args: { id: string }; result: void }
-  'settings.update': { args: Partial<Pick<Settings, 'downloadQuality' | 'theme' | 'mpvPath' | 'commentsEnabled' | 'rotateCover' | 'visualMode' | 'wallpaperScope' | 'wallpaperBrightness' | 'wallpaperOverlay' | 'wallpaperBlur' | 'panelBlur' | 'floatingEnabled' | 'spectrum'>>; result: Settings }
+  'settings.fonts': { args: undefined; result: string[] }
+  'settings.update': { args: Partial<Pick<Settings, 'downloadQuality' | 'theme' | 'mpvPath' | 'commentsEnabled' | 'autoWallpaperText' | 'backgroundColor' | 'fontColor' | 'fontFamily' | 'rotateCover' | 'visualMode' | 'wallpaperScope' | 'wallpaperBrightness' | 'wallpaperOverlay' | 'wallpaperBlur' | 'panelBlur' | 'floatingEnabled' | 'spectrum'>>; result: Settings }
   'settings.pickDirectory': { args: void; result: Settings }
   'peq.apply': { args: PeqSettings; result: Settings }
   'peq.import': { args: void; result: PeqSettings | null }
