@@ -1,6 +1,6 @@
 # Libitum music
 
-中文 Linux 网易云音乐桌面客户端，使用 Electron、React、TypeScript 和 mpv。当前目标为 **Ubuntu 24.04 x86_64**，支持 Wayland 和 X11，不需要部署公共音乐代理。
+中文 Linux 网易云音乐桌面客户端，使用 Electron、React、TypeScript 和 mpv。面向 **Ubuntu 22.04 / 24.04 x86_64**，使用同一个 `.deb`，保留 Wayland 和 X11；其他 glibc 桌面 Linux 延续现有 AppImage 兼容方式，不需要部署公共音乐代理。
 
 > 0.2.0 当前等待真实账号收藏验收。客户端会话和收藏链路已经调整，自动测试与真实账号验证分别记录，不能把模拟测试当成收藏同步已成功。发布状态和结果见 [更新日志](CHANGELOG.md) 与 [验证记录](VALIDATION.md)。
 
@@ -8,7 +8,7 @@
 
 打开 [GitHub Releases](https://github.com/kuranshi/Libitum-Music/releases)，展开对应版本的 **Assets**。Ubuntu 用户推荐下载 `libitum-music-0.2.0-amd64.deb`；`Source code.zip` 是源码，不是安装程序。未正式发布的构建以本地安装包或明确标记的预发布附件为准。
 
-### Ubuntu：推荐安装 .deb
+### Ubuntu / Debian：推荐安装 .deb
 
 在安装包所在文件夹打开终端，执行：
 
@@ -38,6 +38,10 @@ chmod +x ./libitum-music-0.2.0-x86_64.AppImage
 ./libitum-music-0.2.0-x86_64.AppImage
 ```
 
+Ubuntu 22.04 的 FUSE 包名为 `libfuse2`，把上面的 `libfuse2t64` 替换为 `libfuse2`。不要为了运行 AppImage 卸载桌面正在使用的 FUSE 3；二者可以共存。[AppImage 官方说明](https://docs.appimage.org/user-guide/troubleshooting/fuse.html)
+
+其他现代 glibc 桌面（例如 Fedora、Arch）可继续使用现有 AppImage，先通过各自的软件包管理器安装 mpv、FFmpeg、PulseAudio 工具及 libsecret。包名以发行版为准；本轮不新增专用代码或安装包。视频壁纸需要 FFmpeg 的 `libx264` 编码器。
+
 AppImage 不自带系统 mpv、FFmpeg 或 PulseAudio 工具。FUSE、用户命名空间及 Chromium sandbox 受发行版配置影响；Ubuntu 上遇到这类启动错误，优先使用 `.deb`。不要以关闭浏览器沙箱作为常规安装方法。
 
 下载 `SHA256SUMS` 并与安装包放在同一目录后，可核对内容：
@@ -45,6 +49,18 @@ AppImage 不自带系统 mpv、FFmpeg 或 PulseAudio 工具。FUSE、用户命�
 ```bash
 sha256sum -c SHA256SUMS --ignore-missing
 ```
+
+### Linux 兼容范围
+
+| 系统 | 安装方式 | 验证范围 |
+| --- | --- | --- |
+| Ubuntu 24.04 x86_64 | `.deb`，也可 AppImage | 当前实机：Wayland / X11、播放和隔离音频测试通过 |
+| Ubuntu 22.04 x86_64 | 同一个 `.deb` | 隔离安装、正式启动、mpv 0.34.1、PEQ 和视频编码通过；实际桌面仍待验收 |
+| 其他 Ubuntu 版本及其他现代 glibc 桌面 | 现有 `.deb`（适用时）或 AppImage | 本轮不新增专用适配，不承诺逐一验证通过 |
+
+当前只交付 **x86_64**。ARM64、32 位、Alpine / musl、NixOS 及过旧系统不在本次支持范围。Electron 本身支持主流 Linux，但应用的系统音频、密钥环和媒体工具仍须分别验证。[Electron 平台说明](https://github.com/electron/electron#platform-support)
+
+音乐播放需要 mpv（Ubuntu 22.04 基线为 0.34.1）；PEQ 需要其 lavfi 音频滤镜。频谱需要运行中的 PulseAudio 或 PipeWire 兼容服务，原生 PipeWire 输出还需要 `pw-dump`。密钥环必须在桌面登录时解锁；缺少有效后端时账号只保留本次会话。容器测试不证明硬件输出、设备拔插、系统密钥环或窗口管理器行为均正常。
 
 ### 卸载
 
@@ -148,6 +164,16 @@ npm run audit:release -- --packaged
 ```
 
 单元及 Electron 流程使用明确启用的合成测试数据与临时目录。正式安装包无法通过测试环境变量启用模拟账号。公开网络检查不使用真实账号；音频集成检查使用暂停的静音文件及临时虚拟输出，不录制麦克风，结束后清理。
+
+Ubuntu 22.04 隔离检查需要可用的 Docker 和联网环境；先生成 `.deb`：
+
+```bash
+npm run test:ubuntu22
+# 若 Docker 桥接 DNS 不可用，可显式使用主机网络；不修改 DNS 配置：
+LIBITUM_COMPAT_NETWORK=host npm run test:ubuntu22
+```
+
+脚本使用公开基础镜像，一次性容器只读挂载安装包和检查脚本，不挂载个人目录、音频 socket 或 Docker socket。检查安装依赖、正式模式启动、mpv、PK / LS / HS 滤镜、视频 H.264 编码及工具接口。检查容器内以 root 运行时的 `--no-sandbox` 仅用于隔离测试，不作为普通桌面启动方式。
 
 `npm run package` 生成 AppImage 和 `.deb`，产物位于 `release/`。`node scripts/smoke-packaged.cjs --network` 使用隔离目录检查正式包启动及真实公开首页。`npm run audit:release -- --packaged` 检查发布文件允许列表、敏感内容及打包根目录。
 

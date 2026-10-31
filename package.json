@@ -23,7 +23,8 @@
     "package:dir": "npm run build && electron-builder --linux --dir --x64",
     "test:media": "vitest run --config vitest.media.config.ts",
     "audit:release": "node scripts/audit-release.cjs",
-    "test:desktop": "npm run build && node scripts/smoke-desktop.cjs"
+    "test:desktop": "npm run build && node scripts/smoke-desktop.cjs",
+    "test:ubuntu22": "node scripts/check-ubuntu22.cjs"
   },
   "build": {
     "appId": "io.github.cloudmusicplayer.desktop",
@@ -61,8 +62,10 @@
     },
     "deb": {
       "depends": [
-        "mpv",
-        "libgtk-3-0",
+        "mpv (>= 0.34.1)",
+        "ffmpeg",
+        "pulseaudio-utils",
+        "libgtk-3-0 | libgtk-3-0t64",
         "libnotify4",
         "libnss3",
         "libxss1",
@@ -71,10 +74,13 @@
         "libatspi2.0-0",
         "libuuid1",
         "libsecret-1-0",
-        "ffmpeg",
-        "pulseaudio-utils"
+        "libgbm1",
+        "libasound2 | libasound2t64"
       ],
-      "maintainer": "Libitum music contributors"
+      "maintainer": "Libitum music contributors",
+      "recommends": [
+        "fontconfig"
+      ]
     },
     "appImage": {}
   },
