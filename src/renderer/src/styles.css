@@ -94,6 +94,7 @@
 .has-wallpaper .collection-card,.has-wallpaper .section-heading,.has-wallpaper .page-footer{color:var(--text)}
 .has-wallpaper .collection-card strong,.has-wallpaper .collection-card>span{color:inherit}
 .has-wallpaper .collection-card:hover strong{color:var(--accent)}
+.has-wallpaper .track-row:not(:hover):not(.current){background:transparent}
 .custom-appearance{border-top:1px solid var(--line);margin-top:22px;padding-top:20px}
 .custom-appearance h3{font-size:14px;margin-bottom:6px}
 .custom-appearance .font-choice{width:min(280px,55%)}
