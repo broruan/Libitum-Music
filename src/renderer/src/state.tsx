@@ -7,6 +7,7 @@ export async function request<K extends Command>(command: K, args?: CommandMap[K
   if (!window.music) throw new Error('请通过桌面应用启动Libitum music。')
   const result = await window.music.invoke(command, args)
   if (!result.ok) throw Object.assign(new Error(result.error.message), { code: result.error.code, upstreamCode:result.error.upstreamCode })
+  if(command==='player.seek')window.dispatchEvent(new Event('music:seek'))
   return result.data
 }
 export function useResource<T>(load: () => Promise<T>, dependencies: DependencyList, enabled = true) {
@@ -20,7 +21,7 @@ export function useResource<T>(load: () => Promise<T>, dependencies: DependencyL
   }, [...dependencies, revision, enabled])
   return { data, error, loading, reload: () => setRevision(value => value + 1) }
 }
-export type VisualPreview = Partial<Pick<Settings, 'wallpaperBlur' | 'panelBlur'>>
+export type VisualPreview = Partial<Pick<Settings, 'wallpaperBlur' | 'panelBlur' | 'panelOpacity'>>
 interface State {
   visualPreview: VisualPreview; setVisualPreview: Dispatch<SetStateAction<VisualPreview>>
   data: Bootstrap; page: Page; navigate: (page: Page) => void; back: () => void; canBack: boolean

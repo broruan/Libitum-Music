@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { normalizeCollection, normalizeStream, normalizeTrack } from '../../src/main/normalize'
 import { nextIndex } from '../../src/main/queue'
-import { parseLyrics } from '../../src/shared/lyrics'
+import { lyricGroups,lyricIndex,parseLyrics } from '../../src/shared/lyrics'
 import { validateCommand } from '../../src/main/validation'
 import { checkDownloadQuality, safeFilename } from '../../src/main/downloads'
 import { JsonStore } from '../../src/main/store'
@@ -53,4 +53,10 @@ describe('atomic persistence', () => {
     expect(await store.read()).toEqual({ value: 24 }); expect((await stat(path)).mode & 0o777).toBe(0o600)
     expect(JSON.parse(await readFile(path, 'utf8')).version).toBe(1)
   })
+})
+
+it('groups duplicate lyric timestamps with translations and locates before/after a seek',()=>{
+ const groups=lyricGroups('[offset:500]\n[00:01.00]第一句\n[00:01.00]合唱\n[00:05.00][00:09.00]重复句','[00:01.50]译文')
+ expect(groups.map(g=>g.time)).toEqual([1.5,5.5,9.5]);expect(groups[0]).toMatchObject({text:'第一句\n合唱',translation:'译文'})
+ expect(lyricIndex(groups,1)).toBe(-1);expect(lyricIndex(groups,5.5)).toBe(1);expect(lyricIndex(groups,2)).toBe(0);expect(lyricIndex([],20)).toBe(-1)
 })

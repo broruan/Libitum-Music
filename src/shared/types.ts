@@ -43,7 +43,7 @@ export interface SpectrumFrame { bins: number[]; status: 'active' | 'idle' | 'un
 export interface MiniState { track: Track | null; status: PlayerState['status']; position: number; duration: number; volume: number; liked: boolean }
 export interface ExperienceSettings {
   commentsEnabled: boolean; autoWallpaperText: boolean; backgroundColor: string; fontColor: string; fontFamily: string; rotateCover: boolean; visualMode: 'cover' | 'wallpaper'; wallpaperScope: 'player' | 'app'
-  wallpaper: Wallpaper | null; wallpaperBrightness: number; wallpaperOverlay: number; wallpaperBlur: number; panelBlur: number; floatingEnabled: boolean
+  wallpaper: Wallpaper | null; wallpaperBrightness: number; wallpaperOverlay: number; wallpaperBlur: number; panelBlur: number; panelOpacity: number; floatingEnabled: boolean
   floatingBounds?: { x: number; y: number; width: number; height: number }
   peq: PeqSettings; spectrum: { enabled: boolean; color: string; secondaryColor: string; gradient: boolean }
 }
@@ -104,7 +104,7 @@ export interface CommandMap {
   'downloads.reveal': { args: { id: string }; result: void }
   'downloads.play': { args: { id: string }; result: void }
   'settings.fonts': { args: undefined; result: string[] }
-  'settings.update': { args: Partial<Pick<Settings, 'downloadQuality' | 'theme' | 'mpvPath' | 'commentsEnabled' | 'autoWallpaperText' | 'backgroundColor' | 'fontColor' | 'fontFamily' | 'rotateCover' | 'visualMode' | 'wallpaperScope' | 'wallpaperBrightness' | 'wallpaperOverlay' | 'wallpaperBlur' | 'panelBlur' | 'floatingEnabled' | 'spectrum'>>; result: Settings }
+  'settings.update': { args: Partial<Pick<Settings, 'downloadQuality' | 'theme' | 'mpvPath' | 'commentsEnabled' | 'autoWallpaperText' | 'backgroundColor' | 'fontColor' | 'fontFamily' | 'rotateCover' | 'visualMode' | 'wallpaperScope' | 'wallpaperBrightness' | 'wallpaperOverlay' | 'wallpaperBlur' | 'panelBlur' | 'panelOpacity' | 'floatingEnabled' | 'spectrum'>>; result: Settings }
   'settings.pickDirectory': { args: void; result: Settings }
   'peq.apply': { args: PeqSettings; result: Settings }
   'peq.import': { args: void; result: PeqSettings | null }

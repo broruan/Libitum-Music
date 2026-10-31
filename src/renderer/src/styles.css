@@ -29,11 +29,8 @@
 .button.primary{color:var(--on-accent)}
 .app-icon{object-fit:contain;display:block;background:none!important;box-shadow:none!important;border-radius:9px}
 .about-block>.app-icon{width:68px;height:68px;margin:0 auto 15px}
-.has-wallpaper :is(.topbar,.sidebar,.playback-bar,.settings-card,.settings-nav,.immersive-heading,.song-comments,.visual-popover,.listening-meta,.plain-lyrics,.modal){background:rgb(var(--panel-rgb)/.96);backdrop-filter:blur(var(--panel-blur,12px));color:var(--text)}
-.has-wallpaper .page-heading{background:rgb(var(--panel-rgb)/.96);padding:18px 22px;border-radius:12px;backdrop-filter:blur(var(--panel-blur,12px))}
 .has-wallpaper .modal-backdrop{backdrop-filter:none}
 .has-wallpaper .settings-nav{padding:6px;border-radius:12px}
-.has-wallpaper .input,.has-wallpaper .select{background:var(--surface)}
 .blur-setting{gap:16px}
 .blur-setting>label{font-weight:600;font-size:12px;white-space:nowrap}
 .blur-setting>div{display:flex;align-items:center;justify-content:flex-end;gap:12px;min-width:0}
@@ -80,17 +77,20 @@
 
 .has-wallpaper .immersive-heading{padding:8px 12px;border-radius:12px}
 
-/* One continuous wallpaper canvas; readable ink is derived without changing the app theme. */
+/* Canvas colors and panel colors share the manual override, with independent backgrounds. */
 :root{--theme-text:var(--text);--theme-secondary:var(--secondary);--theme-muted:var(--muted);--theme-accent:var(--accent);--theme-accent-soft:var(--accent-soft);--theme-accent-hover:var(--accent-hover);--theme-line:var(--line);--theme-hover:var(--hover);--theme-bg:var(--bg)}
-.app-shell{color:var(--text)}
-.wallpaper-contrast-shade{position:absolute;inset:0;background:rgb(var(--wallpaper-veil,255 255 255));opacity:var(--wallpaper-veil-opacity,.86)}
-.has-wallpaper{--text:var(--wallpaper-ink);--secondary:var(--wallpaper-secondary);--muted:var(--wallpaper-secondary);--accent:var(--wallpaper-accent);--accent-soft:rgb(var(--wallpaper-veil)/.22);--hover:rgb(var(--wallpaper-veil)/.18);--line:rgb(127 127 127/.25)}
+.app-shell{color:var(--text);--hover:color-mix(in srgb,currentColor 9%,transparent);--accent-soft:color-mix(in srgb,currentColor 12%,transparent)}
 .has-wallpaper :is(.sidebar,.topbar,.playback-bar){background:transparent;backdrop-filter:blur(var(--panel-blur,12px));color:var(--text)}
-.has-wallpaper .sidebar{border-right-color:rgb(var(--wallpaper-veil)/.12)}
-:is(.has-wallpaper,.custom-background) :is(.settings-card,.settings-nav,.immersive-heading,.song-comments,.visual-popover,.listening-meta,.plain-lyrics,.modal,.playback-panel,.page-heading,.button,.search-box,.select,.input,.main-play,.feature-card,.header-avatar,.avatar){--text:var(--theme-text);--secondary:var(--theme-secondary);--muted:var(--theme-muted);--accent:var(--theme-accent);--accent-soft:var(--theme-accent-soft);--accent-hover:var(--theme-accent-hover);--line:var(--theme-line);--hover:var(--theme-hover);--bg:var(--theme-bg);color:var(--text)}
-.has-wallpaper .playback-panel{background:rgb(var(--panel-rgb)/.96);backdrop-filter:blur(var(--panel-blur,12px))}
-.has-wallpaper .nav-item.selected{background:rgb(var(--wallpaper-veil)/.22);color:var(--accent)}
-.has-wallpaper .nav-item:hover,.has-wallpaper .icon-button:hover{background:rgb(var(--wallpaper-veil)/.18)}
+.has-wallpaper .sidebar{border-right-color:color-mix(in srgb,currentColor 12%,transparent)}
+:is(.settings-card,.settings-nav,.immersive-heading,.song-comments,.visual-popover,.listening-meta,.plain-lyrics,.modal,.playback-panel,.page-heading){--text:var(--panel-text);--secondary:var(--panel-secondary);--muted:var(--panel-muted);--accent:var(--panel-accent);--accent-soft:var(--theme-accent-soft);--hover:var(--theme-hover);--line:var(--theme-line);color:var(--text);background:rgb(var(--panel-rgb)/var(--panel-opacity,.96));backdrop-filter:blur(var(--panel-blur,12px))}
+.has-wallpaper .page-heading{padding:18px 22px;border-radius:12px}
+:is(.button.subtle,.button.outline,.input,.select,.search-box){--text:var(--panel-text);--secondary:var(--panel-secondary);--muted:var(--panel-muted);color:var(--panel-text);background:rgb(var(--panel-rgb)/var(--panel-opacity,.96))}
+:is(.settings-card,.settings-nav,.immersive-heading,.song-comments,.visual-popover,.listening-meta,.plain-lyrics,.modal,.playback-panel,.page-heading) :is(.button.subtle,.button.outline,.input,.select,.search-box,.music-comment blockquote){background:transparent;color:inherit}
+:is(.button.primary,.main-play){background:var(--theme-accent);color:var(--on-accent)}
+:is(.button.primary,.main-play):hover:not(:disabled){background:var(--theme-accent-hover);color:var(--on-accent)}
+.select option,.select optgroup{color:var(--theme-text);background:rgb(var(--panel-rgb))}
+.has-wallpaper .nav-item.selected{background:var(--accent-soft);color:var(--accent)}
+.has-wallpaper .nav-item:hover,.has-wallpaper .icon-button:hover{background:var(--hover)}
 .has-wallpaper .collection-card,.has-wallpaper .section-heading,.has-wallpaper .page-footer{color:var(--text)}
 .has-wallpaper .collection-card strong,.has-wallpaper .collection-card>span{color:inherit}
 .has-wallpaper .collection-card:hover strong{color:var(--accent)}
@@ -99,6 +99,28 @@
 .custom-appearance h3{font-size:14px;margin-bottom:6px}
 .custom-appearance .font-choice{width:min(280px,55%)}
 .custom-appearance .color-controls{align-items:center;gap:12px}
-
 .custom-background:not(.has-wallpaper) :is(.sidebar,.topbar,.playback-bar){background:var(--bg)}
 .app-shell.custom-background{background:var(--bg)}
+.contrast-notice{--text:var(--theme-text);--secondary:var(--theme-secondary);color:var(--theme-text);background:rgb(var(--panel-rgb));border:1px solid var(--theme-accent);padding:12px;border-radius:10px;font-size:11px;line-height:1.8;margin-top:12px}
+.contrast-notice .text-link{color:var(--theme-accent);margin-top:6px}
+/* Only the cover column can move; comments and the application chrome remain fixed. */
+.now-playing-page .listening-stage{display:block;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.listening-stage-content{display:flex;flex-direction:column;align-items:center;width:100%;height:100%;min-height:100%}
+.lyrics-open .listening-stage-content{height:auto;max-height:calc(var(--stage-height,400px)*2 - 24px)}
+.lyrics-open .cover-stage{flex:0 0 clamp(120px,calc(var(--stage-height,400px)*.45),380px);min-height:120px}
+.now-playing-page .plain-lyrics{flex:0 0 clamp(160px,calc(var(--stage-height,400px)*.6),480px);height:clamp(160px,calc(var(--stage-height,400px)*.6),480px);min-height:160px;padding:4px 8px;overflow:hidden;display:flex}
+.synchronized-lyrics{width:100%;height:100%;min-height:0;display:flex;flex-direction:column}
+.lyrics-heading{flex:none;min-height:28px;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10px;color:var(--secondary);padding:3px 8px}
+.lyrics-heading .text-link{font-size:10px;color:var(--secondary)}
+.lyrics-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;outline-offset:-2px}
+.synchronized-lyrics .lyrics-lines{padding:calc(var(--lyrics-viewport,200px)/2) 12px;gap:20px}
+.synchronized-lyrics .lyric-line{width:100%;padding:0;white-space:pre-line;color:var(--text);font-size:15px;line-height:1.8;transition:color .15s}
+.synchronized-lyrics .lyric-line.current{color:var(--accent);font-size:15px;font-weight:750}
+.synchronized-lyrics .lyric-line small{color:var(--secondary);font-size:12px;white-space:pre-line}
+.plain-lyrics .lyric-line{align-items:center;text-align:center}
+.untimed-lyrics{padding:16px 12px}
+.untimed-lyrics pre{font:inherit;white-space:pre-wrap;line-height:2;margin-top:12px}
+.panel-scroll:has(>.synchronized-lyrics){padding:6px;overflow:hidden}
+@media(prefers-reduced-motion:reduce){.synchronized-lyrics .lyric-line{transition:none}}
+.visual-popover{max-height:calc(100% - 48px);overflow-y:auto;overscroll-behavior:contain}
+.modal.wide .modal-heading{background:transparent;backdrop-filter:blur(var(--panel-blur,12px))}

@@ -24,7 +24,7 @@ describe('experience settings and audio processing',()=>{
   })
   it('migrates old preferences and ignores invalid media paths and parameters',()=>{
     const value=normalizeExperience({wallpaper:{id:'../../session.json',kind:'image',name:'x'},peq:{enabled:true},spectrum:{enabled:true,color:'url(file://private)'}})
-    expect(value.autoWallpaperText).toBe(false);expect(value.fontFamily).toBe('');expect(value.backgroundColor).toBe('');expect(value.panelBlur).toBe(12);expect(normalizeExperience({panelBlur:45,wallpaperBlur:23}).panelBlur).toBe(30);expect(normalizeExperience({panelBlur:7,wallpaperBlur:23}).wallpaperBlur).toBe(23);expect(value.commentsEnabled).toBe(true);expect(value.floatingEnabled).toBe(false);expect(value.wallpaper).toBeNull();expect(value.peq.enabled).toBe(false);expect(value.spectrum.enabled).toBe(false)
+    expect(value.autoWallpaperText).toBe(false);expect(value.fontFamily).toBe('');expect(value.backgroundColor).toBe('');expect(value.panelBlur).toBe(12);expect(value.panelOpacity).toBe(.96);expect(normalizeExperience({panelOpacity:2}).panelOpacity).toBe(1);expect(normalizeExperience({panelOpacity:NaN}).panelOpacity).toBe(.96);expect(normalizeExperience({panelBlur:45,wallpaperBlur:23}).panelBlur).toBe(30);expect(normalizeExperience({panelBlur:7,wallpaperBlur:23}).wallpaperBlur).toBe(23);expect(value.commentsEnabled).toBe(true);expect(value.floatingEnabled).toBe(false);expect(value.wallpaper).toBeNull();expect(value.peq.enabled).toBe(false);expect(value.spectrum.enabled).toBe(false)
   })
   it('groups backend variants without merging distinct outputs by display name',()=>{
     const devices=groupDevices([{name:'auto',description:'Default'},{name:'pipewire',description:'Default (pipewire)'},{name:'pipewire/a',description:'Speaker'},{name:'pipewire/b',description:'Speaker'},{name:'pulse/a',description:'Speaker'},{name:'alsa/hw:0',description:'Speaker'}])
@@ -43,6 +43,9 @@ describe('experience settings and audio processing',()=>{
     expect(()=>validateCommand('settings.update',{fontFamily:'url(https://invalid)'})).toThrow()
     expect(()=>validateCommand('settings.update',{fontColor:'red;display:none'})).toThrow()
     expect(()=>validateCommand('settings.update',{autoWallpaperText:true,fontFamily:'Noto Sans CJK SC',backgroundColor:'#123456'})).not.toThrow()
+    for(const panelOpacity of [-.01,1.01,NaN,Infinity,'0.5'])expect(()=>validateCommand('settings.update',{panelOpacity})).toThrow()
+    expect(()=>validateCommand('settings.update',{panelOpacity:0})).not.toThrow()
+    expect(()=>validateCommand('settings.update',{panelOpacity:1})).not.toThrow()
     expect(()=>validateCommand('settings.update',{panelBlur:-1})).toThrow()
     expect(()=>validateCommand('settings.update',{panelBlur:Infinity})).toThrow()
     expect(()=>validateCommand('settings.update',{panelBlur:30})).not.toThrow()

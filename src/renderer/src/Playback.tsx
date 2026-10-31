@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { AudioLines, SlidersHorizontal, ListPlus, ChevronRight, Heart, ListMusic, LoaderCircle, Mic2, MonitorSpeaker, Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, Volume2, X } from 'lucide-react'
 import { usePlaybackSeek } from './usePlaybackSeek'
-import { parseLyrics } from '../../shared/lyrics'
+import {SynchronizedLyrics} from './SynchronizedLyrics'
 import { Cover, Empty, IconButton, QualitySelect, time } from './components'
-import { qualityName, request, useApp, useResource } from './state'
+import { qualityName, request, useApp } from './state'
 
 function SeekBar() {
   const {data:{player},act}=useApp()
@@ -20,12 +20,6 @@ export function PlaybackBar() {
 }
 export function PlaybackPanel() {
   const { data, panel, setPanel, act } = useApp(), player = data.player, current = player.queue[player.index]
-  const resource = useResource(() => request('catalog.lyrics', { id: current!.id }), [current?.id], panel === 'lyrics' && !!current)
-  const lines = parseLyrics(resource.data?.original || ''), translated = parseLyrics(resource.data?.translated || '')
-  let currentLine = -1
-  for (let index = 0; index < lines.length; index++) if (lines[index].time <= player.position) currentLine = index
-  const activeLine = useRef<HTMLButtonElement>(null)
-  useEffect(() => { activeLine.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }, [currentLine])
   if (!panel) return null
-  return <aside className="playback-panel" aria-label={panel === 'queue' ? '播放队列' : '歌词面板'}><div className="panel-heading"><div><h2>{panel === 'queue' ? '播放队列' : '歌词'}</h2><span>{panel === 'queue' ? `${player.queue.length} 首音乐，慢慢听` : current?.title || '等待音乐响起'}</span></div><IconButton title="关闭播放面板" onClick={() => setPanel(null)}><X size={20}/></IconButton></div><div className="panel-scroll">{panel === 'queue' ? player.queue.length ? player.queue.map((track, index) => <div className={`queue-row ${index === player.index ? 'current' : ''}`} key={`${track.id}-${index}`}><button className="queue-track" onClick={() => void act(request('player.play', { tracks: player.queue, index }))}><Cover url={track.coverUrl} title={track.title} id={track.id} size="tiny"/><div><strong>{track.title}</strong><span>{track.artists.map(artist => artist.name).join(' / ')}</span></div>{index === player.index && <AudioLines size={17}/>}</button><IconButton title={`移出队列 ${track.title}`} onClick={() => void act(request('player.remove', { index }))}><X size={15}/></IconButton></div>) : <Empty title="队列还是空的"/> : !current ? <Empty title="先播放一首音乐吧"/> : resource.loading ? <Empty title="正在寻找歌词…"/> : resource.error ? <Empty title="歌词暂时不可用" description={resource.error}/> : !lines.length ? <Empty title="此刻，让旋律说话" description="这首歌暂时没有同步歌词。"/> : <div className="lyrics-lines">{lines.map((line, index) => <button ref={index === currentLine ? activeLine : null} key={`${line.time}-${index}`} className={index === currentLine ? 'current' : ''} onClick={() => void act(request('player.seek', { seconds: line.time }))}><span>{line.text || '♪'}</span>{translated.find(item => Math.abs(item.time - line.time) < 0.3)?.text && <small>{translated.find(item => Math.abs(item.time - line.time) < 0.3)?.text}</small>}</button>)}</div>}</div></aside>
+  return <aside className="playback-panel" aria-label={panel === 'queue' ? '播放队列' : '歌词面板'}><div className="panel-heading"><div><h2>{panel === 'queue' ? '播放队列' : '歌词'}</h2><span>{panel === 'queue' ? `${player.queue.length} 首音乐，慢慢听` : current?.title || '等待音乐响起'}</span></div><IconButton title="关闭播放面板" onClick={() => setPanel(null)}><X size={20}/></IconButton></div><div className="panel-scroll">{panel === 'queue' ? player.queue.length ? player.queue.map((track, index) => <div className={`queue-row ${index === player.index ? 'current' : ''}`} key={`${track.id}-${index}`}><button className="queue-track" onClick={() => void act(request('player.play', { tracks: player.queue, index }))}><Cover url={track.coverUrl} title={track.title} id={track.id} size="tiny"/><div><strong>{track.title}</strong><span>{track.artists.map(artist => artist.name).join(' / ')}</span></div>{index === player.index && <AudioLines size={17}/>}</button><IconButton title={`移出队列 ${track.title}`} onClick={() => void act(request('player.remove', { index }))}><X size={15}/></IconButton></div>) : <Empty title="队列还是空的"/> : !current ? <Empty title="先播放一首音乐吧"/> : <SynchronizedLyrics key={current.id} trackId={current.id}/>}</div></aside>
 }

@@ -5,6 +5,7 @@ import type { PeqSettings, SpectrumFrame } from '../../shared/types'
 import { defaultPeq, validPeq } from '../../shared/peq'
 import { Busy, Cover, Empty, ErrorState, IconButton, Modal, Pagination } from './components'
 import { BlurControls } from './VisualControls'
+import {SynchronizedLyrics} from './SynchronizedLyrics'
 import { request, useApp, useResource } from './state'
 
 export function Background({playerPage=false,onPalette}:{playerPage?:boolean;onPalette:(palette:WallpaperPalette)=>void}) {
@@ -27,8 +28,7 @@ export function Background({playerPage=false,onPalette}:{playerPage?:boolean;onP
       try{
         const scale=Math.max(box.width/width,box.height/height)*1.08,sw=box.width/scale,sh=box.height/scale
         context.clearRect(0,0,32,32);context.drawImage(media,(width-sw)/2,(height-sh)/2,sw,sh,0,0,32,32)
-        const manual=settings.autoWallpaperText?undefined:(settings.fontColor||getComputedStyle(document.documentElement).getPropertyValue('--text').trim())
-        const palette=wallpaperPalette(context.getImageData(0,0,32,32).data,settings.wallpaperBrightness,settings.wallpaperOverlay,last.current,manual)
+        const palette=wallpaperPalette(context.getImageData(0,0,32,32).data,settings.wallpaperBrightness,settings.wallpaperOverlay,last.current)
         if(JSON.stringify(palette)!==JSON.stringify(last.current)){last.current=palette;onPalette(palette)}
       }catch{onPalette(SAFE_WALLPAPER_PALETTE)}
     }
@@ -38,9 +38,9 @@ export function Background({playerPage=false,onPalette}:{playerPage?:boolean;onP
     window.addEventListener('resize',sample);document.addEventListener('visibilitychange',sample)
     sample();const timer=setInterval(sample,2000)
     return()=>{clearInterval(timer);media?.removeEventListener('load',sample);media?.removeEventListener('loadeddata',sample);media?.removeEventListener('seeked',sample);system.removeEventListener('change',sample);window.removeEventListener('resize',sample);document.removeEventListener('visibilitychange',sample)}
-  },[active,src,settings.wallpaperBrightness,settings.wallpaperOverlay,settings.autoWallpaperText,settings.fontColor,settings.theme,onPalette])
+  },[active,src,settings.wallpaperBrightness,settings.wallpaperOverlay,onPalette])
   if(!active)return null
-  return <div ref={background} className="music-background" aria-hidden="true" style={{'--wallpaper-brightness':settings.wallpaperBrightness,'--wallpaper-overlay':settings.wallpaperOverlay} as React.CSSProperties}>{settings.wallpaper!.kind==='video'?<video ref={video} src={src} muted loop playsInline preload="auto"/>:<img ref={image} src={src} alt=""/>}<div className="wallpaper-shade"/><div className="wallpaper-contrast-shade"/></div>
+  return <div ref={background} className="music-background" aria-hidden="true" style={{'--wallpaper-brightness':settings.wallpaperBrightness,'--wallpaper-overlay':settings.wallpaperOverlay} as React.CSSProperties}>{settings.wallpaper!.kind==='video'?<video ref={video} src={src} muted loop playsInline preload="auto"/>:<img ref={image} src={src} alt=""/>}<div className="wallpaper-shade"/></div>
 }
 export function PeqEditor() {
   const {data,act}=useApp(),[draft,setDraft]=useState<PeqSettings>(()=>structuredClone(data.settings.peq)),[busy,setBusy]=useState(false),[error,setError]=useState(''),[imported,setImported]=useState(false)
@@ -99,7 +99,17 @@ export function NowPlayingPage(){
   const {data,act,likedIds,liking,toggleLike,addToPlaylist,setPeqOpen,navigate}=useApp(),track=data.player.queue[data.player.index]
   const [commentsOpen,setCommentsOpen]=useState(false),[visualOpen,setVisualOpen]=useState(false),[lyricsOpen,setLyricsOpen]=useState(false)
   const commentButton=useRef<HTMLButtonElement>(null),visualButton=useRef<HTMLButtonElement>(null)
-  const lyrics=useResource(()=>request('catalog.lyrics',{id:track!.id}),[track?.id],!!track)
+  const layout=useRef<HTMLDivElement>(null),stage=useRef<HTMLElement>(null),[stageHeight,setStageHeight]=useState(400)
+  useEffect(()=>{
+    if(!lyricsOpen)return
+    const frame=requestAnimationFrame(()=>{const node=stage.current;if(node)node.scrollTo({top:node.scrollHeight,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'})})
+    return()=>cancelAnimationFrame(frame)
+  },[lyricsOpen])
+  useEffect(()=>{
+    const node=layout.current;if(!node)return
+    const observer=new ResizeObserver(()=>setStageHeight(node.clientHeight));observer.observe(node)
+    return()=>observer.disconnect()
+  },[!!track])
   const opened=commentsOpen&&data.settings.commentsEnabled
   const closeComments=()=>{setCommentsOpen(false);commentButton.current?.focus()}
   useEffect(()=>{if(!data.settings.commentsEnabled)setCommentsOpen(false)},[data.settings.commentsEnabled])
@@ -120,14 +130,15 @@ export function NowPlayingPage(){
       <IconButton title="切换实时频谱" active={data.settings.spectrum.enabled} onClick={()=>void act(request('settings.update',{spectrum:{...data.settings.spectrum,enabled:!data.settings.spectrum.enabled}}))}><Waves size={20}/></IconButton>
     </div></div>
     {visualOpen&&<section className="visual-popover" id="player-visual-settings" aria-label="播放视觉设置"><header><h2>视觉设置</h2><IconButton title="关闭视觉设置" onClick={()=>{setVisualOpen(false);visualButton.current?.focus()}}><X size={18}/></IconButton></header><BlurControls/></section>}
-    <div className={`listening-layout ${opened?'with-comments':''}`}>
-      <section className={`listening-stage ${lyricsOpen?'lyrics-open':''} ${data.settings.spectrum.enabled?'has-spectrum':''}`} aria-label="歌曲封面与信息">
+    <div ref={layout} className={`listening-layout ${opened?'with-comments':''}`} style={{'--stage-height':`${stageHeight}px`} as React.CSSProperties}>
+      <section ref={stage} className={`listening-stage ${lyricsOpen?'lyrics-open':''} ${data.settings.spectrum.enabled?'has-spectrum':''}`} aria-label="歌曲封面与信息" tabIndex={0}><div className="listening-stage-content">
         <div className="cover-stage"><div className={`album-disc ${data.settings.rotateCover?'rotating':''} ${data.player.status==='playing'?'is-playing':''}`}><Cover url={track.coverUrl} title={track.title} id={track.id}/></div></div>
         <div className="listening-meta"><h1>{track.title}</h1><p className="muted">{track.artists.map((artist,i)=><span key={`${artist.id}-${i}`}>{i>0&&' / '}{/^[1-9]\d*$/.test(artist.id)?<button className="text-link" aria-label={`查看歌手 ${artist.name}`} onClick={()=>navigate({type:'detail',kind:'artist',id:artist.id})}>{artist.name}</button>:artist.name}</span>)} · {track.album.title}</p>
           <div className="listening-actions"><button className="button subtle" disabled={liking.has(track.id)} onClick={()=>void toggleLike(track)}><Heart size={16} fill={likedIds.has(track.id)?'currentColor':'none'}/>{likedIds.has(track.id)?'已喜欢':'喜欢'}</button><button className="button subtle" onClick={()=>addToPlaylist(track)}><ListPlus size={17}/>加入歌单</button><button className="button subtle" aria-expanded={lyricsOpen} aria-controls="listening-lyrics" onClick={()=>setLyricsOpen(!lyricsOpen)}>歌词</button></div>
         </div>
         <SpectrumView/>
-        {lyricsOpen&&<div className="plain-lyrics" id="listening-lyrics" tabIndex={0} aria-label="歌曲歌词"><pre>{lyrics.data?.original?.replace(/\[\d+:\d+(?:\.\d+)?\]/g,'')||lyrics.error||'暂无歌词'}</pre></div>}
+        {lyricsOpen&&<div className="plain-lyrics" id="listening-lyrics" aria-label="歌曲歌词"><SynchronizedLyrics key={track.id} trackId={track.id}/></div>}
+      </div>
       </section>
       <aside className={`song-comments ${opened?'is-open':''}`} id="song-comments-panel" aria-label="歌曲评论" aria-hidden={!opened} inert={!opened}>
         <header className="comments-heading"><h2><MessageCircle size={19}/>听友的声音</h2><IconButton title="关闭评论" onClick={closeComments}><X size={19}/></IconButton></header>
