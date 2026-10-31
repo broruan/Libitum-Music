@@ -24,7 +24,7 @@ describe('experience settings and audio processing',()=>{
   })
   it('migrates old preferences and ignores invalid media paths and parameters',()=>{
     const value=normalizeExperience({wallpaper:{id:'../../session.json',kind:'image',name:'x'},peq:{enabled:true},spectrum:{enabled:true,color:'url(file://private)'}})
-    expect(value.commentsEnabled).toBe(true);expect(value.floatingEnabled).toBe(false);expect(value.wallpaper).toBeNull();expect(value.peq.enabled).toBe(false);expect(value.spectrum.enabled).toBe(false)
+    expect(value.panelBlur).toBe(12);expect(normalizeExperience({panelBlur:45,wallpaperBlur:23}).panelBlur).toBe(30);expect(normalizeExperience({panelBlur:7,wallpaperBlur:23}).wallpaperBlur).toBe(23);expect(value.commentsEnabled).toBe(true);expect(value.floatingEnabled).toBe(false);expect(value.wallpaper).toBeNull();expect(value.peq.enabled).toBe(false);expect(value.spectrum.enabled).toBe(false)
   })
   it('groups backend variants without merging distinct outputs by display name',()=>{
     const devices=groupDevices([{name:'auto',description:'Default'},{name:'pipewire',description:'Default (pipewire)'},{name:'pipewire/a',description:'Speaker'},{name:'pipewire/b',description:'Speaker'},{name:'pulse/a',description:'Speaker'},{name:'alsa/hw:0',description:'Speaker'}])
@@ -39,6 +39,9 @@ describe('experience settings and audio processing',()=>{
     expect(spectrum(new Float32Array(4096))).toEqual(Array(64).fill(0))
   })
   it('rejects arbitrary file access and malformed processing commands at the IPC boundary',()=>{
+    expect(()=>validateCommand('settings.update',{panelBlur:-1})).toThrow()
+    expect(()=>validateCommand('settings.update',{panelBlur:Infinity})).toThrow()
+    expect(()=>validateCommand('settings.update',{panelBlur:30})).not.toThrow()
     expect(()=>validateCommand('settings.update',{wallpaper:{id:'/etc/passwd'}})).toThrow()
     expect(()=>validateCommand('peq.apply',{...defaultPeq(),preamp:Infinity})).toThrow()
     expect(()=>validateCommand('library.addToPlaylist',{id:'102',trackId:'shell-command'})).toThrow()

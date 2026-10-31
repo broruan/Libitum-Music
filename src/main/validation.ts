@@ -44,7 +44,7 @@ export function validateCommand(command: unknown, args: any): asserts command is
     case 'player.radio': assert(['FM', 'DEFAULT', 'FAMILIAR', 'EXPLORE', 'SCENE_RCMD'].includes(args.mode)); if (args.mode === 'SCENE_RCMD') assert(typeof args.scene === 'string' && /^[A-Z_]{2,40}$/.test(args.scene)); break
     case 'downloads.cancel': case 'downloads.retry': case 'downloads.reveal': case 'downloads.play': assert(text(args.id, 100)); if (args.quality !== undefined) assert(quality(args.quality)); break
     case 'settings.update':
-      assert(Object.keys(args).every(key => ['downloadQuality', 'theme', 'mpvPath', 'commentsEnabled', 'rotateCover', 'visualMode', 'wallpaperScope', 'wallpaperBrightness', 'wallpaperOverlay', 'wallpaperBlur', 'floatingEnabled', 'spectrum'].includes(key)))
+      assert(Object.keys(args).every(key => ['downloadQuality', 'theme', 'mpvPath', 'commentsEnabled', 'rotateCover', 'visualMode', 'wallpaperScope', 'wallpaperBrightness', 'wallpaperOverlay', 'wallpaperBlur', 'panelBlur', 'floatingEnabled', 'spectrum'].includes(key)))
       if (args.downloadQuality !== undefined) assert(quality(args.downloadQuality))
       if (args.theme !== undefined) assert(['system', 'light', 'dark'].includes(args.theme))
       if (args.mpvPath !== undefined) assert(text(args.mpvPath, 1024) && (args.mpvPath === 'mpv' || args.mpvPath.startsWith('/')) && !/[\x00-\x1f]/.test(args.mpvPath))
@@ -54,6 +54,7 @@ export function validateCommand(command: unknown, args: any): asserts command is
       if (args.wallpaperBrightness !== undefined) assert(finite(args.wallpaperBrightness,0.1,1))
       if (args.wallpaperOverlay !== undefined) assert(finite(args.wallpaperOverlay,0,0.9))
       if (args.wallpaperBlur !== undefined) assert(finite(args.wallpaperBlur,0,40))
+      if (args.panelBlur !== undefined) assert(finite(args.panelBlur,0,30))
       if (args.spectrum !== undefined) assert(args.spectrum && typeof args.spectrum.enabled === 'boolean' && typeof args.spectrum.gradient === 'boolean' && /^#[a-f0-9]{6}$/i.test(args.spectrum.color) && /^#[a-f0-9]{6}$/i.test(args.spectrum.secondaryColor))
       break
     case 'app.openExternal': {

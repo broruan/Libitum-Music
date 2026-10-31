@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { Check, Disc3, Heart, ListPlus, LoaderCircle, MessageCircle, SlidersHorizontal, Waves } from 'lucide-react'
+import { Check, Heart, ListPlus, LoaderCircle, MessageCircle, SlidersHorizontal, Waves, Palette, X } from 'lucide-react'
 import type { PeqSettings, SpectrumFrame } from '../../shared/types'
 import { defaultPeq, validPeq } from '../../shared/peq'
 import { Busy, Cover, Empty, ErrorState, IconButton, Modal, Pagination } from './components'
+import { BlurControls } from './VisualControls'
 import { request, useApp, useResource } from './state'
 
 export function Background({ playerPage=false }: { playerPage?: boolean }) {
@@ -14,7 +15,7 @@ export function Background({ playerPage=false }: { playerPage?: boolean }) {
     update(); document.addEventListener('visibilitychange',update);return()=>document.removeEventListener('visibilitychange',update)
   },[active,src,data.player.status])
   if(!active)return null
-  return <div className="music-background" aria-hidden="true" style={{'--wallpaper-brightness':settings.wallpaperBrightness,'--wallpaper-overlay':settings.wallpaperOverlay,'--wallpaper-blur':`${settings.wallpaperBlur}px`} as React.CSSProperties}>{settings.wallpaper!.kind==='video'?<video ref={video} src={src} muted loop playsInline preload="auto"/>:<img src={src} alt=""/>}<div className="wallpaper-shade"/></div>
+  return <div className="music-background" aria-hidden="true" style={{'--wallpaper-brightness':settings.wallpaperBrightness,'--wallpaper-overlay':settings.wallpaperOverlay} as React.CSSProperties}>{settings.wallpaper!.kind==='video'?<video ref={video} src={src} muted loop playsInline preload="auto"/>:<img src={src} alt=""/>}<div className="wallpaper-shade"/></div>
 }
 export function PeqEditor() {
   const {data,act}=useApp(),[draft,setDraft]=useState<PeqSettings>(()=>structuredClone(data.settings.peq)),[busy,setBusy]=useState(false),[error,setError]=useState(''),[imported,setImported]=useState(false)
@@ -71,7 +72,42 @@ export function SpectrumView(){
 }
 export function NowPlayingPage(){
   const {data,act,likedIds,liking,toggleLike,addToPlaylist,setPeqOpen}=useApp(),track=data.player.queue[data.player.index]
+  const [commentsOpen,setCommentsOpen]=useState(false),[visualOpen,setVisualOpen]=useState(false),[lyricsOpen,setLyricsOpen]=useState(false)
+  const commentButton=useRef<HTMLButtonElement>(null),visualButton=useRef<HTMLButtonElement>(null)
   const lyrics=useResource(()=>request('catalog.lyrics',{id:track!.id}),[track?.id],!!track)
+  const opened=commentsOpen&&data.settings.commentsEnabled
+  const closeComments=()=>{setCommentsOpen(false);commentButton.current?.focus()}
+  useEffect(()=>{if(!data.settings.commentsEnabled)setCommentsOpen(false)},[data.settings.commentsEnabled])
+  useEffect(()=>{
+    const escape=(event:KeyboardEvent)=>{
+      if(event.key!=='Escape'||document.querySelector('[aria-modal="true"]'))return
+      if(visualOpen){setVisualOpen(false);visualButton.current?.focus();event.stopPropagation()}
+      else if(opened){closeComments();event.stopPropagation()}
+    }
+    document.addEventListener('keydown',escape);return()=>document.removeEventListener('keydown',escape)
+  },[opened,visualOpen])
   if(!track)return <Empty title="先播放一首音乐吧"/>
-  return <div className="now-playing-page"><div className="immersive-heading"><span className="eyebrow">NOW PLAYING</span><div className="row-actions"><IconButton title="十段 PEQ" onClick={()=>setPeqOpen(true)} active={data.settings.peq.enabled}><SlidersHorizontal size={20}/></IconButton><IconButton title="切换实时频谱" active={data.settings.spectrum.enabled} onClick={()=>void act(request('settings.update',{spectrum:{...data.settings.spectrum,enabled:!data.settings.spectrum.enabled}}))}><Waves size={20}/></IconButton></div></div><div className={`listening-layout ${data.settings.commentsEnabled?'with-comments':''}`}><section className="listening-stage"><div className={`album-disc ${data.settings.rotateCover?'rotating':''} ${data.player.status==='playing'?'is-playing':''}`}><Cover url={track.coverUrl} title={track.title} id={track.id}/></div><h1>{track.title}</h1><p className="muted">{track.artists.map(a=>a.name).join(' / ')} · {track.album.title}</p><div className="listening-actions"><button className="button subtle" disabled={liking.has(track.id)} onClick={()=>void toggleLike(track)}><Heart size={16} fill={likedIds.has(track.id)?'currentColor':'none'}/>{likedIds.has(track.id)?'已喜欢':'喜欢'}</button><button className="button subtle" onClick={()=>addToPlaylist(track)}><ListPlus size={17}/>加入歌单</button></div><SpectrumView/><details className="plain-lyrics"><summary>歌词</summary><pre>{lyrics.data?.original?.replace(/\[\d+:\d+(?:\.\d+)?\]/g,'')||lyrics.error||'暂无歌词'}</pre></details></section>{data.settings.commentsEnabled&&<aside className="song-comments" aria-label="歌曲评论"><h2><MessageCircle size={19}/>听友的声音</h2><Comments key={track.id} id={track.id}/></aside>}</div></div>
+  return <div className="now-playing-page">
+    <div className="immersive-heading"><span className="eyebrow">NOW PLAYING</span><div className="row-actions">
+      {data.settings.commentsEnabled&&<button ref={commentButton} type="button" className={`button subtle comment-toggle ${opened?'active':''}`} aria-label="评论" aria-controls="song-comments-panel" aria-expanded={opened} onClick={()=>setCommentsOpen(!opened)}><MessageCircle size={17}/>评论</button>}
+      <button ref={visualButton} type="button" className={`button subtle ${visualOpen?'active':''}`} aria-label="视觉设置" aria-expanded={visualOpen} aria-controls="player-visual-settings" onClick={()=>setVisualOpen(!visualOpen)}><Palette size={17}/>视觉</button>
+      <IconButton title="十段 PEQ" onClick={()=>setPeqOpen(true)} active={data.settings.peq.enabled}><SlidersHorizontal size={20}/></IconButton>
+      <IconButton title="切换实时频谱" active={data.settings.spectrum.enabled} onClick={()=>void act(request('settings.update',{spectrum:{...data.settings.spectrum,enabled:!data.settings.spectrum.enabled}}))}><Waves size={20}/></IconButton>
+    </div></div>
+    {visualOpen&&<section className="visual-popover" id="player-visual-settings" aria-label="播放视觉设置"><header><h2>视觉设置</h2><IconButton title="关闭视觉设置" onClick={()=>{setVisualOpen(false);visualButton.current?.focus()}}><X size={18}/></IconButton></header><BlurControls/></section>}
+    <div className={`listening-layout ${opened?'with-comments':''}`}>
+      <section className={`listening-stage ${lyricsOpen?'lyrics-open':''} ${data.settings.spectrum.enabled?'has-spectrum':''}`} aria-label="歌曲封面与信息">
+        <div className="cover-stage"><div className={`album-disc ${data.settings.rotateCover?'rotating':''} ${data.player.status==='playing'?'is-playing':''}`}><Cover url={track.coverUrl} title={track.title} id={track.id}/></div></div>
+        <div className="listening-meta"><h1>{track.title}</h1><p className="muted">{track.artists.map(a=>a.name).join(' / ')} · {track.album.title}</p>
+          <div className="listening-actions"><button className="button subtle" disabled={liking.has(track.id)} onClick={()=>void toggleLike(track)}><Heart size={16} fill={likedIds.has(track.id)?'currentColor':'none'}/>{likedIds.has(track.id)?'已喜欢':'喜欢'}</button><button className="button subtle" onClick={()=>addToPlaylist(track)}><ListPlus size={17}/>加入歌单</button><button className="button subtle" aria-expanded={lyricsOpen} aria-controls="listening-lyrics" onClick={()=>setLyricsOpen(!lyricsOpen)}>歌词</button></div>
+        </div>
+        <SpectrumView/>
+        {lyricsOpen&&<div className="plain-lyrics" id="listening-lyrics" tabIndex={0} aria-label="歌曲歌词"><pre>{lyrics.data?.original?.replace(/\[\d+:\d+(?:\.\d+)?\]/g,'')||lyrics.error||'暂无歌词'}</pre></div>}
+      </section>
+      <aside className={`song-comments ${opened?'is-open':''}`} id="song-comments-panel" aria-label="歌曲评论" aria-hidden={!opened} inert={!opened}>
+        <header className="comments-heading"><h2><MessageCircle size={19}/>听友的声音</h2><IconButton title="关闭评论" onClick={closeComments}><X size={19}/></IconButton></header>
+        <div className="comments-scroll" key={track.id} tabIndex={opened?0:-1}>{opened&&<Comments key={track.id} id={track.id}/>}</div>
+      </aside>
+    </div>
+  </div>
 }

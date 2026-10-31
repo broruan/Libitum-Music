@@ -47,8 +47,12 @@ export function createFixtureApi(audioUrl = '', qrScenario = ''): ApiModule {
     album_sublist: () => response({ data: albumSubscribed ? [{ ...album, subscribed: true }] : [], count: albumSubscribed ? 1 : 0 }),
     like: p => { likes = p.like ? [...new Set([Number(p.id), ...likes])] : likes.filter(id => id !== Number(p.id)); return response({}) },
     playlist_subscribe: p => { subscribed = p.t === 1; return response({}) }, album_sub: p => { albumSubscribed = p.t === 1; return response({}) },
-    comment_music: p => response({ hotComments: [{ commentId: 1, content: '愿每一段旋律都带来好心情。', user: { nickname: '测试听众', avatarUrl: '' }, likedCount: 128, time: 1700000000000 }], comments: Number(p.offset) ? [] : [{ commentId: 2, content: '今天也在认真听歌。', user: { nickname: '音乐朋友' }, likedCount: 2, time: 1700000001000 }], total: 1, more: false }),
-    lyric: () => response({ lrc: { lyric: '[00:00.00]晚风轻轻经过\n[00:05.00]音乐在这里停留\n[00:10.00]一起听见生活' } }),
+    comment_music: async p => {
+      if(audioUrl) { const url=new URL('/comments',audioUrl);url.searchParams.set('id',String(p.id));url.searchParams.set('offset',String(p.offset||0));await fetch(url) }
+      const offset=Number(p.offset)||0
+      return response({hotComments:offset?[]:[{commentId:1,content:'愿每一段旋律都带来好心情。',user:{nickname:'测试听众',avatarUrl:''},likedCount:128,time:1700000000000}],comments:Array.from({length:Math.min(20,45-offset)},(_,i)=>({commentId:offset+i+2,content:`测试评论 ${offset+i+1}：让音乐陪伴每一天，认真听见每一个音符与故事。`,user:{nickname:'音乐朋友'},likedCount:2,time:1700000001000+i*1000})),total:45,more:offset+20<45})
+    },
+    lyric: () => response({ lrc: { lyric: '[00:00.00]晚风轻轻经过\n[00:05.00]音乐在这里停留\n[00:10.00]一起听见生活'+Array.from({length:40},(_,i)=>`\n[01:${String(i).padStart(2,'0')}.00]测试歌词第 ${i+1} 行`).join('') } }),
     personal_fm: () => response({ data: songs }), personal_fm_mode: () => response({ data: songs }), fm_trash: () => response({}), scrobble: () => response({}),
     song_url_v1: p => response({ data: [{ id: p.id, url: audioUrl, level: p.level, br: 320000, type: 'wav' }] }),
     song_download_url_v1: p => response({ data: { id: p.id, url: audioUrl, level: p.level, br: 320000, type: 'wav' } })

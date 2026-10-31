@@ -1,5 +1,6 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type DependencyList, type ReactNode } from 'react'
-import type { Bootstrap, CollectionKind, Command, CommandMap, MediaImportState, Quality, Track } from '../../shared/types'
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type DependencyList, type ReactNode, type Dispatch, type SetStateAction } from 'react'
+import appIcon from '../../../resources/icon.png'
+import type { Bootstrap, CollectionKind, Command, CommandMap, MediaImportState, Quality, Settings, Track } from '../../shared/types'
 
 export type Page = { type: 'home' } | { type: 'search'; query: string } | { type: 'detail'; kind: CollectionKind; id: string } | { type: 'library'; kind: 'likes' | 'playlists' | 'albums' } | { type: 'daily' } | { type: 'radio'; fm: boolean } | { type: 'downloads' } | { type: 'nowPlaying' } | { type: 'settings'; section?: string }
 export async function request<K extends Command>(command: K, args?: CommandMap[K]['args']): Promise<CommandMap[K]['result']> {
@@ -19,7 +20,9 @@ export function useResource<T>(load: () => Promise<T>, dependencies: DependencyL
   }, [...dependencies, revision, enabled])
   return { data, error, loading, reload: () => setRevision(value => value + 1) }
 }
+export type VisualPreview = Partial<Pick<Settings, 'wallpaperBlur' | 'panelBlur'>>
 interface State {
+  visualPreview: VisualPreview; setVisualPreview: Dispatch<SetStateAction<VisualPreview>>
   data: Bootstrap; page: Page; navigate: (page: Page) => void; back: () => void; canBack: boolean
   login: () => void; loginOpen: boolean; setLoginOpen: (open: boolean) => void
   toast: (message: string) => void; toasts: { id: number; message: string }[]
@@ -41,6 +44,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [panel, setPanel] = useState<'queue' | 'lyrics' | null>(null)
   const [playlistTrack,setPlaylistTrack]=useState<Track|null>(null),[peqOpen,setPeqOpen]=useState(false)
   const [mediaImport,setMediaImport]=useState<MediaImportState>({status:'idle',progress:0})
+  const [visualPreview,setVisualPreview]=useState<VisualPreview>({})
   const toastId = useRef(0)
   const toast = useCallback((message: string) => { const id = ++toastId.current; setToasts(list => [...list.slice(-2), { id, message }]); setTimeout(() => setToasts(list => list.filter(item => item.id !== id)), 5500) }, [])
   useEffect(() => {
@@ -73,7 +77,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [data?.session.user?.id, libraryRevision])
   const act = async (action: Promise<unknown>, message?: string) => { try { await action; if (message) toast(message) } catch (error) { const problem = error as Error & { code?: string }; if (['AUTH_REQUIRED','AUTH_EXPIRED','AUTH_INCOMPLETE'].includes(problem.code || '')) setLoginOpen(true); toast(problem.message) } }
   if (failure) return <div className="boot-screen"><h1>Libitum music暂时无法启动</h1><p>{failure}</p><button className="button primary" onClick={() => location.reload()}>重试</button></div>
-  if (!data) return <div className="boot-screen"><div className="brand-mark large">♪</div><h1>Libitum music</h1><p>正在准备你的音乐空间…</p><div className="spinner" /></div>
+  if (!data) return <div className="boot-screen"><img className="brand-mark large app-icon" src={appIcon} alt=""/><h1>Libitum music</h1><p>正在准备你的音乐空间…</p><div className="spinner" /></div>
   const navigate = (target: Page) => { setHistory(list => [...list.slice(-29), page]); setPage(target) }
   const toggleLike = async (track: Track) => {
     if (!data.session.user) { setLoginOpen(true); return }
@@ -83,6 +87,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     catch (error) { toast((error as Error).message) }
     finally { setLiking(ids => { const next = new Set(ids); next.delete(track.id); return next }) }
   }
-  return <Context.Provider value={{ data, page, navigate, back: () => { if (history.length) { setPage(history[history.length - 1]); setHistory(list => list.slice(0, -1)) } }, canBack: !!history.length, login: () => setLoginOpen(true), loginOpen, setLoginOpen, toast, toasts, act, download: tracks => { if (!data.session.user) setLoginOpen(true); else if (tracks.length) setDownloadTracks(tracks) }, downloadTracks, setDownloadTracks, libraryRevision, likedIds, toggleLike, liking, panel, setPanel,playlistTrack,setPlaylistTrack,addToPlaylist:track=>{if(!data.session.user)setLoginOpen(true);else setPlaylistTrack(track)},peqOpen,setPeqOpen,mediaImport }}>{children}</Context.Provider>
+  return <Context.Provider value={{ data, page, navigate, back: () => { if (history.length) { setPage(history[history.length - 1]); setHistory(list => list.slice(0, -1)) } }, canBack: !!history.length, login: () => setLoginOpen(true), loginOpen, setLoginOpen, toast, toasts, act, download: tracks => { if (!data.session.user) setLoginOpen(true); else if (tracks.length) setDownloadTracks(tracks) }, downloadTracks, setDownloadTracks, libraryRevision, likedIds, toggleLike, liking, panel, setPanel,playlistTrack,setPlaylistTrack,addToPlaylist:track=>{if(!data.session.user)setLoginOpen(true);else setPlaylistTrack(track)},peqOpen,setPeqOpen,mediaImport,visualPreview,setVisualPreview }}>{children}</Context.Provider>
 }
 export function qualityName(quality: string) { const names: Record<string, string> = { standard: '标准', higher: '较高', exhigh: '极高', lossless: '无损', hires: 'Hi-Res' }; return names[quality] || quality }

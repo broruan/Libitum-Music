@@ -21,7 +21,7 @@ describe('read request recovery', () => {
       await expect(requests.run(code, read, operation)).rejects.toMatchObject({ code })
       expect(operation).toHaveBeenCalledTimes(1)
     }
-    for (const name of ['like', 'playlist_subscribe', 'login_qr_key', 'api', 'login_status', 'personal_fm']) {
+    for (const name of ['comment_music', 'like', 'playlist_subscribe', 'login_qr_key', 'api', 'login_status', 'personal_fm']) {
       const operation = vi.fn(async () => { throw new MusicError('NETWORK', 'temporary') })
       await expect(requests.run(name, requestPolicy(name, {}), operation)).rejects.toMatchObject({ code: 'NETWORK' })
       expect(operation).toHaveBeenCalledTimes(1)

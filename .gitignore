@@ -17,7 +17,6 @@
 !/tests/
 !/resources/
 /resources/*
-!/resources/icon.svg
 !/resources/icon.png
 
 # Dependencies, builds, installers, test screenshots/traces and logs.

@@ -67,9 +67,9 @@ async function refreshMiniLike() {
   if(miniWindow && !miniWindow.isDestroyed()) miniWindow.webContents.send('music:event',{type:'mini',data:miniSnapshot()})
 }
 const notice = (message: string) => send({ type: 'notice', data: message })
-function saveSettings(patch: Partial<Settings>) {
+function saveSettings(patch: Partial<Settings>, reportFailure=true) {
   settings = { ...settings, ...patch }
-  void settingsStore.write(settings).catch(() => notice('设置保存失败，请检查磁盘空间。'))
+  void settingsStore.write(settings).catch(() => {if(reportFailure) notice('设置保存失败，请检查磁盘空间。')})
   send({ type: 'settings', data: settings })
 }
 function saveQueue() {
@@ -143,7 +143,14 @@ async function handle(command: Command, args: any): Promise<any> {
     }
     case 'settings.update': {
       const changedMpv = args.mpvPath && args.mpvPath !== settings.mpvPath
-      saveSettings(args)
+      const previous=settings
+      saveSettings(args,false)
+      try { await settingsStore.flush() } catch {
+        const restored={...settings}
+        for(const key of Object.keys(args) as (keyof Settings)[]) if(settings[key]===args[key]) (restored as any)[key]=previous[key]
+        settings=restored;send({type:'settings',data:settings})
+        throw new MusicError('SETTINGS_SAVE','设置保存失败，已恢复原值，请检查磁盘空间。')
+      }
       if (changedMpv) await player.restart()
       if (args.floatingEnabled === true) createMini()
       if (args.floatingEnabled === false && miniWindow) miniWindow.close()
@@ -302,7 +309,7 @@ function createMini() {
     const width=Math.min(bounds.width,area.width),height=Math.min(bounds.height,area.height)
     bounds={width,height,x:Math.max(area.x,Math.min(bounds.x,area.x+area.width-width)),y:Math.max(area.y,Math.min(bounds.y,area.y+area.height-height))}
   }
-  const card=new BrowserWindow({ width:380,height:180,minWidth:320,minHeight:160,...bounds,frame:false,resizable:true,show:false,alwaysOnTop:true,title:'Libitum music · 悬浮卡片',autoHideMenuBar:true,backgroundColor:'#191b24',webPreferences:{preload:join(__dirname,'../preload/index.js'),contextIsolation:true,nodeIntegration:false,sandbox:true,webSecurity:true} })
+  const card=new BrowserWindow({icon:join(app.getAppPath(),'resources/icon.png'), width:380,height:180,minWidth:320,minHeight:160,...bounds,frame:false,resizable:true,show:false,alwaysOnTop:true,title:'Libitum music · 悬浮卡片',autoHideMenuBar:true,backgroundColor:'#191b24',webPreferences:{preload:join(__dirname,'../preload/index.js'),contextIsolation:true,nodeIntegration:false,sandbox:true,webSecurity:true} })
   miniWindow=card
   card.webContents.setWindowOpenHandler(()=>({action:'deny'})); card.webContents.on('will-navigate',event=>event.preventDefault())
   card.once('ready-to-show',()=>{ if(miniWindow===card) card.show() })

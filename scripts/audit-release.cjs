@@ -7,7 +7,7 @@ const privatePath=new RegExp('/'+'home/'+'[^/\\s"\']+|/'+'Users/'+'[^/\\s"\']+')
 const patterns=[/MUSIC_[UA]\s*=\s*[A-Za-z0-9%+/=_-]{40,}/,/(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|AKIA[A-Z0-9]{16})/,/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,privatePath]
 const findings=[]
 for(const name of files){
-  const known=allowed.has(name)||/^vitest(?:\.[a-z]+)?\.config\.ts$/.test(name)||/^(?:src|tests)\/.*\.(?:ts|tsx|css|html)$/.test(name)||/^scripts\/.*\.(?:cjs|py)$/.test(name)||['resources/icon.png','resources/icon.svg'].includes(name)
+  const known=allowed.has(name)||/^vitest(?:\.[a-z]+)?\.config\.ts$/.test(name)||/^(?:src|tests)\/.*\.(?:ts|tsx|css|html)$/.test(name)||/^scripts\/.*\.(?:cjs|py)$/.test(name)||['resources/icon.png'].includes(name)
   if(!known){findings.push({file:name,reason:'outside publication allowlist'});continue}
   const file=path.join(root,name)
   if(!fs.existsSync(file))continue
