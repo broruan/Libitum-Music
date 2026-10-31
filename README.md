@@ -2,11 +2,11 @@
 
 中文 Linux 网易云音乐桌面客户端，使用 Electron、React、TypeScript 和 mpv。面向 **Ubuntu 22.04 / 24.04 x86_64**，使用同一个 `.deb`，保留 Wayland 和 X11；其他 glibc 桌面 Linux 延续现有 AppImage 兼容方式，不需要部署公共音乐代理。
 
-> 0.2.0 当前等待真实账号收藏验收。客户端会话和收藏链路已经调整，自动测试与真实账号验证分别记录，不能把模拟测试当成收藏同步已成功。发布状态和结果见 [更新日志](CHANGELOG.md) 与 [验证记录](VALIDATION.md)。
+> 0.2.0 当前以 `v0.2.0-rc.1` 预发布候选版提供，完整真实账号收藏验收仍待补齐。客户端会话和收藏链路已经调整，自动测试与真实账号验证分别记录，不能把模拟测试当成收藏同步已成功。发布状态和结果见 [更新日志](CHANGELOG.md) 与 [验证记录](VALIDATION.md)。
 
 ## 下载与安装
 
-打开 [GitHub Releases](https://github.com/kuranshi/Libitum-Music/releases)，展开对应版本的 **Assets**。Ubuntu 用户推荐下载 `libitum-music-0.2.0-amd64.deb`；`Source code.zip` 是源码，不是安装程序。未正式发布的构建以本地安装包或明确标记的预发布附件为准。
+打开 [0.2.0-rc.1 下载页](https://github.com/kuranshi/Libitum-Music/releases/tag/v0.2.0-rc.1)（或 [全部 Releases](https://github.com/kuranshi/Libitum-Music/releases)），展开对应版本的 **Assets**。Ubuntu 用户推荐下载 `libitum-music-0.2.0-amd64.deb`；`Source code.zip` 是源码，不是安装程序。未正式发布的构建以本地安装包或明确标记的预发布附件为准。
 
 ### Ubuntu / Debian：推荐安装 .deb
 
