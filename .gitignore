@@ -1,0 +1,148 @@
+# Root allowlist: new local files/directories stay private by default.
+/*
+!/.gitignore
+!/LICENSE
+!/README.md
+!/THIRD_PARTY_NOTICES.md
+!/VALIDATION.md
+!/package.json
+!/package-lock.json
+!/tsconfig.json
+!/electron.vite.config.ts
+!/playwright.config.ts
+!/vitest*.config.ts
+!/src/
+!/scripts/
+!/tests/
+!/resources/
+
+# Dependencies, builds, installers, test screenshots/traces and logs.
+node_modules/
+out/
+dist/
+build/
+release/
+coverage/
+test-results/
+playwright-report/
+blob-report/
+*.log
+*.trace
+*.dmp
+*.deb
+*.AppImage
+*.snap
+*.part
+*.tmp
+*.bak
+*.zip
+*.7z
+*.rar
+*.tar
+*.tar.gz
+
+# Local credentials and account state (including encrypted sessions).
+.env
+.env.*
+*.pem
+*.key
+.npmrc
+.netrc
+.git-credentials
+credentials*
+secrets*
+session.json*
+settings.json*
+queue.json*
+client.json*
+downloads.json*
+history.json*
+*cookie*.json*
+*cookie*.txt*
+*cookie*.sqlite*
+*cookie*.yaml
+*cookie*.yml
+*cookie*.har
+*session*.sqlite*
+*.har
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+anonymous_token
+xeapi_public_key
+neapi_key*
+
+# Electron/Chromium profiles, caches, histories and local user directories.
+runtime/
+user-data/
+userdata/
+userData/
+app-data/
+appData/
+profiles/
+.config/
+.local/
+.cache/
+.codex/
+.agents/
+.idea/
+.vscode/
+Cache/
+Code Cache/
+GPUCache/
+Network/
+Local Storage/
+Session Storage/
+IndexedDB/
+Service Worker/
+Crashpad/
+Cookies
+Cookies-*
+cookie
+cookies
+cookies-*
+History
+History-*
+history/
+histories/
+Login Data
+Login Data-*
+Web Data
+Web Data-*
+Local State
+Preferences
+Secure Preferences
+Visited Links
+Top Sites
+Top Sites-*
+
+# Downloads, personal media, covers/screenshots; only the app icon is public.
+downloads/
+Downloads/
+Libitum music 下载/
+*.mp3
+*.flac
+*.m4a
+*.aac
+*.ogg
+*.opus
+*.wav
+*.wma
+*.ape
+*.alac
+*.ncm
+*.lrc
+*.mp4
+*.mkv
+*.webm
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+!/resources/icon.png
+.DS_Store
+Thumbs.db

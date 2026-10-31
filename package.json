@@ -1,0 +1,95 @@
+{
+  "name": "cloud-music-player",
+  "version": "0.1.2",
+  "description": "Libitum music · Linux 网易云音乐桌面客户端",
+  "main": "out/main/index.js",
+  "desktopName": "cloud-music-player.desktop",
+  "author": "Libitum music contributors",
+  "license": "MIT",
+  "overrides": {
+    "basic-ftp": "6.2.4"
+  },
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "npm run typecheck && electron-vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "npm run build && playwright test",
+    "test:audio": "vitest run --config vitest.audio.config.ts",
+    "test:network": "vitest run --config vitest.network.config.ts",
+    "preview": "electron-vite preview",
+    "package": "npm run build && electron-builder --linux AppImage --x64 && node scripts/package-deb.cjs",
+    "package:deb": "npm run package:dir && node scripts/package-deb.cjs",
+    "package:dir": "npm run build && electron-builder --linux --dir --x64"
+  },
+  "build": {
+    "appId": "io.github.cloudmusicplayer.desktop",
+    "productName": "Libitum music",
+    "executableName": "cloud-music-player",
+    "directories": {
+      "output": "release",
+      "buildResources": "resources"
+    },
+    "files": [
+      "out/**/*",
+      "resources/icon.png",
+      "package.json",
+      "LICENSE",
+      "THIRD_PARTY_NOTICES.md"
+    ],
+    "asarUnpack": [
+      "node_modules/@neteasecloudmusicapienhanced/api/**/*"
+    ],
+    "linux": {
+      "syncDesktopName": true,
+      "target": [
+        "AppImage"
+      ],
+      "category": "AudioVideo;Audio;Player",
+      "icon": "resources/icon.png",
+      "desktop": {
+        "entry": {
+          "Name": "Libitum music",
+          "Comment": "网易云音乐桌面客户端",
+          "Keywords": "Music;NetEase;Audio;"
+        }
+      },
+      "artifactName": "libitum-music-${version}-${arch}.${ext}"
+    },
+    "deb": {
+      "depends": [
+        "mpv",
+        "libgtk-3-0",
+        "libnotify4",
+        "libnss3",
+        "libxss1",
+        "libxtst6",
+        "xdg-utils",
+        "libatspi2.0-0",
+        "libuuid1",
+        "libsecret-1-0"
+      ],
+      "maintainer": "Libitum music contributors"
+    },
+    "appImage": {}
+  },
+  "dependencies": {
+    "@neteasecloudmusicapienhanced/api": "4.41.1",
+    "lucide-react": "1.66.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@types/node": "26.6.6",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "electron": "45.2.1",
+    "electron-builder": "26.18.0",
+    "electron-vite": "6.0.0",
+    "typescript": "7.0.2",
+    "vite": "8.3.5",
+    "vitest": "5.0.5"
+  }
+}

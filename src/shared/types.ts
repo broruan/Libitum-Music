@@ -1,0 +1,94 @@
+export const QUALITIES = {
+  standard: '标准', higher: '较高', exhigh: '极高', lossless: '无损', hires: 'Hi-Res'
+} as const
+export type Quality = keyof typeof QUALITIES
+export type ProviderId = 'netease'
+export interface ResourceRef { provider: ProviderId; id: string }
+export interface Artist extends ResourceRef { name: string; coverUrl: string }
+export interface Track extends ResourceRef {
+  title: string; artists: Artist[]; album: { id: string; title: string }; coverUrl: string; durationMs: number
+}
+export type CollectionKind = 'playlist' | 'album' | 'artist'
+export interface Collection extends ResourceRef {
+  kind: CollectionKind; title: string; coverUrl: string; description: string; creatorName: string
+  trackCount: number; subscribed: boolean; owned: boolean
+}
+export type Album = Collection & { kind: 'album' }
+export type Playlist = Collection & { kind: 'playlist' }
+export interface User { id: string; nickname: string; avatarUrl: string }
+export interface Session { user: User | null; persistent: boolean; message?: string }
+export interface QRCode { key: string; dataUrl: string }
+export interface QRStatus { state: 'waiting' | 'confirm' | 'expired' | 'success'; session?: Session }
+export type SearchKind = 'song' | 'album' | 'artist' | 'playlist'
+export interface SearchResult { tracks: Track[]; collections: Collection[]; total: number }
+export interface Detail { collection: Collection; tracks: Track[]; total: number }
+export type HomeSection = 'daily' | 'recommended' | 'charts' | 'newAlbums'
+export interface HomeResult { tracks: Track[]; collections: Collection[] }
+export type LibraryKind = 'likes' | 'playlists' | 'albums'
+export interface LibraryResult extends HomeResult { total: number; likedIds: string[] }
+export interface RadioSpec { mode: 'FM' | 'DEFAULT' | 'FAMILIAR' | 'EXPLORE' | 'SCENE_RCMD'; scene?: string }
+export const SCENES = { EXERCISE: '运动', FOCUS: '专注', SLEEP_HELP: '助眠', RELAX: '放松', CHEERFUL: '欢快', CURE: '治愈', COMMUTE: '通勤', COFFEE_SHOP: '咖啡馆', ROCK: '摇滚', LIGHT: '轻音乐', ACG: '二次元', JAZZ: '爵士' } as const
+export interface Stream { url: string; quality: string; bitrate: number; format: string; size: number; trial: boolean }
+export interface Lyrics { original: string; translated: string }
+export interface AudioDevice { id: string; label: string }
+export type RepeatMode = 'list' | 'one' | 'shuffle'
+export interface PlayerState {
+  queue: Track[]; index: number; status: 'idle' | 'loading' | 'playing' | 'paused' | 'error'
+  position: number; duration: number; volume: number; repeat: RepeatMode; requestedQuality: Quality
+  actualQuality: string; bitrate: number; trial: boolean; deviceId: string; devices: AudioDevice[]
+  available: boolean; error: string | null; notice: string | null; radio: RadioSpec | null
+}
+export interface Settings { quality: Quality; downloadQuality: Quality; downloadDirectory: string; deviceId: string; volume: number; theme: 'system' | 'light' | 'dark'; mpvPath: string }
+export type DownloadStatus = 'queued' | 'resolving' | 'downloading' | 'completed' | 'failed' | 'cancelled' | 'interrupted'
+export interface DownloadTask {
+  id: string; ownerId: string; track: Track; quality: Quality; actualQuality?: string
+  status: DownloadStatus; received: number; total: number; path?: string; error?: string; createdAt: number
+}
+export interface Bootstrap { session: Session; settings: Settings; player: PlayerState; downloads: DownloadTask[]; version: string }
+export interface AppError { code: string; message: string }
+export type Result<T> = { ok: true; data: T } | { ok: false; error: AppError }
+
+export interface CommandMap {
+  'app.bootstrap': { args: void; result: Bootstrap }
+  'auth.qrStart': { args: void; result: QRCode }
+  'auth.qrCheck': { args: { key: string }; result: QRStatus }
+  'auth.qrCancel': { args: { key: string }; result: void }
+  'auth.importCookie': { args: { cookie: string }; result: Session }
+  'auth.logout': { args: void; result: void }
+  'catalog.search': { args: { keywords: string; kind: SearchKind; offset: number }; result: SearchResult }
+  'catalog.detail': { args: { kind: CollectionKind; id: string; offset: number }; result: Detail }
+  'catalog.allTracks': { args: { kind: CollectionKind; id: string }; result: Track[] }
+  'catalog.lyrics': { args: { id: string }; result: Lyrics }
+  'home.section': { args: { section: HomeSection }; result: HomeResult }
+  'library.list': { args: { kind: LibraryKind; offset: number }; result: LibraryResult }
+  'library.like': { args: { id: string; like: boolean }; result: void }
+  'library.subscribe': { args: { kind: 'album' | 'playlist'; id: string; subscribe: boolean }; result: void }
+  'player.play': { args: { tracks: Track[]; index?: number; append?: boolean }; result: void }
+  'player.toggle': { args: void; result: void }
+  'player.next': { args: void; result: void }
+  'player.previous': { args: void; result: void }
+  'player.seek': { args: { seconds: number }; result: void }
+  'player.volume': { args: { volume: number }; result: void }
+  'player.repeat': { args: { mode: RepeatMode }; result: void }
+  'player.quality': { args: { quality: Quality }; result: void }
+  'player.device': { args: { id: string }; result: void }
+  'player.refreshDevices': { args: void; result: void }
+  'player.remove': { args: { index: number }; result: void }
+  'player.radio': { args: RadioSpec; result: void }
+  'player.dislike': { args: void; result: void }
+  'downloads.add': { args: { tracks: Track[]; quality: Quality }; result: void }
+  'downloads.cancel': { args: { id: string }; result: void }
+  'downloads.retry': { args: { id: string; quality?: Quality }; result: void }
+  'downloads.reveal': { args: { id: string }; result: void }
+  'downloads.play': { args: { id: string }; result: void }
+  'settings.update': { args: Partial<Pick<Settings, 'downloadQuality' | 'theme' | 'mpvPath'>>; result: Settings }
+  'settings.pickDirectory': { args: void; result: Settings }
+  'app.openExternal': { args: { url: string }; result: void }
+}
+export type Command = keyof CommandMap
+export type AppEvent = { type: 'player'; data: PlayerState } | { type: 'session'; data: Session } | { type: 'downloads'; data: DownloadTask[] } | { type: 'settings'; data: Settings } | { type: 'library'; data: null } | { type: 'notice'; data: string }
+export interface DesktopAPI {
+  invoke<K extends Command>(command: K, args?: CommandMap[K]['args']): Promise<Result<CommandMap[K]['result']>>
+  onEvent(listener: (event: AppEvent) => void): () => void
+}
+declare global { interface Window { music: DesktopAPI } }
