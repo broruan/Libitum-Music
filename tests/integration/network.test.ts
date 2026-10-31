@@ -37,6 +37,8 @@ it('opens real homepage playlists, initializes playback, and polls one unscanned
     }
     report.searchSongs = (await provider.search('周杰伦', 'song', 0)).tracks.length
     expect(report.searchSongs).toBeGreaterThan(0)
+    const comments=await provider.comments('33894312',0)
+    expect(comments.total).toBeGreaterThan(0);expect(comments.items.length+comments.hot.length).toBeGreaterThan(0)
     // This public song is queried under normal anonymous permissions; no audio is downloaded.
     const stream = await provider.resolve('33894312', 'standard')
     expect(Boolean(stream.url)).toBe(true); report.streamsResolved++

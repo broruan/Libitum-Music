@@ -1,6 +1,6 @@
 import { MusicError } from '../shared/errors'
 
-const READS = new Set(['cloudsearch', 'search', 'playlist_detail', 'song_detail', 'album', 'artists', 'album_detail_dynamic', 'toplist', 'album_new', 'personalized', 'lyric', 'likelist', 'user_playlist', 'album_sublist', 'recommend_resource', 'recommend_songs', 'user_detail', 'song_url_v1', 'song_download_url_v1'])
+const READS = new Set(['comment_music', 'cloudsearch', 'search', 'playlist_detail', 'song_detail', 'album', 'artists', 'album_detail_dynamic', 'toplist', 'album_new', 'personalized', 'lyric', 'likelist', 'user_playlist', 'album_sublist', 'recommend_resource', 'recommend_songs', 'user_detail', 'song_url_v1', 'song_download_url_v1'])
 const CACHE_MS: Record<string, number> = { cloudsearch: 30000, search: 30000, playlist_detail: 60000, song_detail: 120000, album: 60000, artists: 60000, toplist: 120000, album_new: 120000, personalized: 60000, lyric: 300000 }
 export function requestPolicy(name: string, params: Record<string, unknown>) {
   const playlist = name === 'api' && params.uri === '/api/v6/playlist/detail'

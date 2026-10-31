@@ -1,4 +1,6 @@
-import type { AudioDevice, DownloadTask, PlayerState, Quality, RadioSpec, Settings, Stream, Track } from '../shared/types'
+import type { DownloadTask, PeqSettings, PlayerState, Quality, RadioSpec, Settings, Stream, Track } from '../shared/types'
+import { resolveDevices } from './devices'
+import { defaultPeq, peqGraph, validPeq } from '../shared/peq'
 import { QUALITIES } from '../shared/types'
 import { MusicError } from '../shared/errors'
 import { Mpv } from './mpv'
@@ -21,7 +23,13 @@ export class Player {
   private listened = 0
   private lastTime = 0
   private lastEmit = 0
+  private deviceRevision = 0
+  private deviceKey: string
+  private peqSettings: PeqSettings
+  private peqTail: Promise<void> = Promise.resolve()
   constructor(private mpv: Mpv, private backend: Backend, settings: Settings, private emit: (state: PlayerState) => void, private save: () => void, private saveSettings: (patch: Partial<Settings>) => void) {
+    this.deviceKey = settings.deviceKey || ''
+    this.peqSettings = validPeq(settings.peq) ? settings.peq : defaultPeq()
     this.state = { queue: [], index: -1, status: 'idle', position: 0, duration: 0, volume: settings.volume, repeat: 'list', requestedQuality: settings.quality, actualQuality: '', bitrate: 0, trial: false, deviceId: settings.deviceId, devices: [{ id: 'auto', label: '跟随系统默认' }], available: false, error: null, notice: null, radio: null }
     mpv.on('event', event => { void this.onEvent(event).catch(() => { this.state.notice = '播放器状态更新失败，请重试。'; this.changed() }) })
     mpv.on('crashed', () => { this.generation++; this.loaded = false; this.loading = null; this.state.available = false; this.state.status = 'error'; this.state.error = 'mpv 已退出，请在设置中重新检测播放器。'; this.changed() })
@@ -44,6 +52,7 @@ export class Player {
       this.state.available = true; this.state.error = null
       await this.mpv.command(['set_property', 'volume', this.state.volume])
       await this.refreshDevices()
+      if (this.peqSettings.enabled) await this.applyPeq(this.peqSettings, false)
     } catch (error) {
       this.state.available = false; this.state.error = error instanceof MusicError ? error.message : '无法连接 mpv。'
     }
@@ -55,8 +64,13 @@ export class Player {
     await this.updateDevices(devices)
   }
   private async updateDevices(raw: Array<{ name: string; description: string }>) {
-    const devices: AudioDevice[] = [{ id: 'auto', label: '跟随系统默认' }, ...(raw || []).filter(device => device.name !== 'auto').map(device => ({ id: device.name, label: device.description || device.name }))]
+    const revision = ++this.deviceRevision
+    const devices = await resolveDevices(raw)
+    if (revision !== this.deviceRevision) return
     this.state.devices = devices
+    const match = this.deviceKey && devices.find(d => d.key === this.deviceKey)
+    if (match && match.id !== this.state.deviceId) { this.state.deviceId = match.id; this.saveSettings({ deviceId: match.id, deviceKey: match.key }) }
+    if (!this.deviceKey) { const existing = devices.find(d => d.id === this.state.deviceId); if (existing?.key) { this.deviceKey = existing.key; this.saveSettings({ deviceKey: existing.key }) } }
     if (this.state.deviceId !== 'auto' && !devices.some(device => device.id === this.state.deviceId)) {
       if (this.mpv.running) await this.mpv.command(['set_property', 'pause', true]).catch(() => {})
       this.state.status = this.current() ? 'paused' : 'idle'
@@ -68,7 +82,27 @@ export class Player {
     if (!this.state.devices.some(device => device.id === id)) throw new MusicError('DEVICE_MISSING', '输出设备已不可用，请刷新设备列表。')
     if (!this.mpv.running) await this.initialize()
     await this.mpv.command(['set_property', 'audio-device', id])
-    this.state.deviceId = id; this.state.notice = null; this.saveSettings({ deviceId: id }); this.changed()
+    this.state.deviceId = id; this.deviceKey = this.state.devices.find(d => d.id === id)?.key || id; this.state.notice = null; this.saveSettings({ deviceId: id, deviceKey: this.deviceKey }); this.changed()
+  }
+  get processId() { return this.mpv.pid }
+  applyPeq(value: PeqSettings, persist = true): Promise<void> {
+    if (!validPeq(value)) return Promise.reject(new MusicError('INVALID_ARGUMENT', 'PEQ 参数无效。'))
+    const requested = structuredClone(value)
+    const operation = this.peqTail.catch(() => {}).then(async () => {
+      if (!this.mpv.running) throw new MusicError('MPV_UNAVAILABLE', '播放器尚未就绪。')
+      const previous = await this.mpv.command(['get_property', 'af']) || []
+      const rate = await this.mpv.command(['get_property', 'audio-params/samplerate']).catch(() => 48000) || 48000
+      const chain = previous.filter((filter: any) => filter.label !== 'libitum_peq')
+      if (requested.enabled) chain.push({ name: 'lavfi', label: 'libitum_peq', enabled: true, params: { graph: peqGraph(requested, rate) } })
+      try { await this.mpv.command(['set_property', 'af', chain]) }
+      catch (error) { await this.mpv.command(['set_property', 'af', previous]).catch(() => {}); throw error }
+      this.peqSettings = requested
+      if (persist) this.saveSettings({ peq: requested })
+      if (requested.enabled && requested.bands.some(b => b.enabled && b.gain && b.frequency >= rate / 2)) this.state.notice = '部分 PEQ 频段高于当前音频采样率的有效范围，本曲暂不应用这些频段。'
+      this.changed()
+    })
+    this.peqTail = operation
+    return operation
   }
   private assertDevice() { if (!this.state.devices.some(device => device.id === this.state.deviceId)) throw new MusicError('DEVICE_MISSING', '请选择可用的输出设备。') }
   async play(tracks: Track[], index = 0, append = false) {
@@ -144,6 +178,7 @@ export class Player {
       const path = await this.mpv.command(['get_property', 'path'])
       if (load !== this.loading || load.generation !== this.generation || path !== load.url) return
       if (load.position > 0) await this.mpv.command(['seek', load.position, 'absolute+exact'])
+      if (this.peqSettings.enabled) await this.applyPeq(this.peqSettings, false)
       await this.mpv.command(['set_property', 'pause', load.paused])
       if (load.generation !== this.generation) return
       this.loading = null; this.loaded = true; this.failedIds.clear()

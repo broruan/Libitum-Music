@@ -15,6 +15,7 @@ export class Mpv extends EventEmitter {
   private stopping = false
   constructor(private runtimeDirectory: string, private executable: () => string, private headless = false) { super() }
   get running() { return !!this.socket && !this.socket.destroyed }
+  get pid() { return this.process?.pid }
   async start(): Promise<void> {
     if (this.running) return
     if (this.starting) return this.starting

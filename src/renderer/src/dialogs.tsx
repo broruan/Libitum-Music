@@ -62,7 +62,7 @@ export function LoginDialog() {
     try { const session = await request('auth.importCookie', { cookie: cookie.trim() }); setCookie(''); toast(session.message || '登录成功，欢迎回来。'); setLoginOpen(false) }
     catch (error) { setError((error as Error).message) } finally { setSaving(false) }
   }
-  const retry = retrying || errorCode === 'RISK_BLOCKED' ? undefined : qr ? () => resume.current?.() : () => setRevision(value => value + 1)
+  const retry = retrying || ['RISK_BLOCKED','RATE_LIMITED'].includes(errorCode) ? undefined : qr ? () => resume.current?.() : () => setRevision(value => value + 1)
   return <Modal title="让音乐，更懂你" subtitle="登录你的网易云音乐账号" close={() => setLoginOpen(false)}>
     <div className="tabs centered"><button className={tab === 'qr' ? 'selected' : ''} onClick={() => setTab('qr')}>扫码登录</button><button className={tab === 'cookie' ? 'selected' : ''} onClick={() => setTab('cookie')}>Cookie 导入</button></div>
     {tab === 'qr' ? <div className="qr-panel">

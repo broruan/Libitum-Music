@@ -1,74 +1,127 @@
-# Libitum music · Linux 网易云音乐客户端
+# Libitum music
 
-一个使用 Electron、React、TypeScript 和 mpv 的中文桌面音乐客户端。面向 Ubuntu 24.04 x86_64，支持 Wayland / X11。项目为非官方客户端，网易云连接由应用内部的后台进程处理，不需要部署或使用公共代理服务器。
+中文 Linux 网易云音乐桌面客户端，使用 Electron、React、TypeScript 和 mpv。当前目标为 **Ubuntu 24.04 x86_64**，支持 Wayland 和 X11，不需要部署公共音乐代理。
 
-## 功能
+> 0.2.0 当前等待真实账号收藏验收。客户端会话和收藏链路已经调整，自动测试与真实账号验证分别记录，不能把模拟测试当成收藏同步已成功。发布状态和结果见 [更新日志](CHANGELOG.md) 与 [验证记录](VALIDATION.md)。
 
-- 网易云 App 扫码登录、Cookie 导入，系统密钥环保存会话；无有效密钥环时仅保持本次运行的登录。
-- 搜索歌曲、歌手、专辑、歌单；浏览详情、分页、播放全部与加入队列。
-- 每日推荐、推荐歌单、排行榜、新专辑。
-- 喜欢歌曲、收藏及取消收藏歌单和专辑，同步网易云账号。
-- 漫游页：默认、熟悉、探索和场景推荐；独立私人 FM。推荐流连续播放，支持喜欢、下一首和不感兴趣。
-- mpv 原生播放、进度、音量、列表/单曲/随机播放、播放队列、LRC 同步歌词。
-- 标准、较高、极高、无损、Hi-Res 音质选择，显示实际音质和试听状态。
-- 枚举本机 mpv 输出设备，默认跟随系统，也可固定声卡、耳机或 DAC；指定设备断开时暂停。
-- 单曲、歌单、专辑批量下载；并发两项，进度、取消、重试、打开文件位置及本地播放。所选音质与服务返回不一致时明确失败，允许更换音质重试；试听片段不会被保存为完整歌曲。
-- 系统/浅色/深色主题。`Ctrl+K` 聚焦搜索，空格播放/暂停。
+## 下载与安装
 
-首版不包含音乐云盘、手机号验证码、视频、其他音乐平台、多账号并行或本地目录扫描。漫游使用 `/personal/fm/mode` 的推荐模式，不承诺与网易云 App 的全部漫游场景完全一致。
+打开 [GitHub Releases](https://github.com/kuranshi/Libitum-Music/releases)，展开对应版本的 **Assets**。Ubuntu 用户推荐下载 `libitum-music-0.2.0-amd64.deb`；`Source code.zip` 是源码，不是安装程序。未正式发布的构建以本地安装包或明确标记的预发布附件为准。
 
-## 安装与运行
+### Ubuntu：推荐安装 .deb
 
-推荐使用 `release/libitum-music-0.1.2-amd64.deb`：
+在安装包所在文件夹打开终端，执行：
 
 ```bash
-sudo apt install ./release/libitum-music-0.1.2-amd64.deb
+sudo apt update
+sudo apt install ./libitum-music-0.2.0-amd64.deb
+```
+
+安装器会处理 mpv、ffmpeg、pulseaudio-utils 和桌面运行库依赖。然后从应用菜单启动 **Libitum music**，或运行：
+
+```bash
 cloud-music-player
 ```
 
-Debian 包声明 mpv 和桌面运行库依赖，也可从应用菜单打开“Libitum music”。安装包中 Chromium sandbox helper 的所有者为 root，权限为 4755。
+如果安装包在其他位置，请把命令中的文件名替换为完整路径，并为含空格的路径加引号。提示找不到文件时，先确认当前目录及实际文件名。
 
-AppImage 不捆绑系统 mpv：
+从旧版升级时先通过“退出应用”完全退出，再执行同一条 `sudo apt install ./…deb` 命令。内部 Debian 包名仍是 `cloud-music-player`，因此会升级现有安装，并保留本机账号、设置、队列和下载，不会生成第二个旧品牌入口。
+
+### AppImage
+
+下载 `libitum-music-0.2.0-x86_64.AppImage`。Ubuntu 24.04 先安装外部组件：
 
 ```bash
-sudo apt install mpv libsecret-1-0
-chmod +x release/libitum-music-0.1.2-x86_64.AppImage
-./release/libitum-music-0.1.2-x86_64.AppImage
+sudo apt update
+sudo apt install mpv ffmpeg pulseaudio-utils libsecret-1-0 libfuse2t64
+chmod +x ./libitum-music-0.2.0-x86_64.AppImage
+./libitum-music-0.2.0-x86_64.AppImage
 ```
 
-AppImage 还依赖系统 FUSE 支持和 Chromium sandbox 可用的系统配置。在 Ubuntu 24.04 上建议优先安装 `.deb`。程序不会通过默认关闭 Chromium sandbox 来规避系统限制。
+AppImage 不自带系统 mpv、FFmpeg 或 PulseAudio 工具。FUSE、用户命名空间及 Chromium sandbox 受发行版配置影响；Ubuntu 上遇到这类启动错误，优先使用 `.deb`。不要以关闭浏览器沙箱作为常规安装方法。
 
-首次打开后，点击左下角账号或右上角头像，用网易云手机 App 扫码。也可切换 Cookie 导入，粘贴本人已登录网页中的 `MUSIC_U=…` Cookie。请在应用内完成登录，无需把凭证发送到聊天或填写进源代码。
+下载 `SHA256SUMS` 并与安装包放在同一目录后，可核对内容：
 
-“设置 → 播放与输出”中选择设备、音质及 mpv 路径。如果提示播放器缺失，请安装 mpv 后点击“检测”。下载默认保存在系统音乐目录的“Libitum music 下载”文件夹，可在设置或下载对话框中修改。
+```bash
+sha256sum -c SHA256SUMS --ignore-missing
+```
 
-## 0.1.2 连接稳定性修复
+### 卸载
 
-- 修复公开接口偶发连接重置导致歌单整页失败的问题：优先 IPv4 并保留 IPv6 回退；只读请求在网络异常时最多尝试 3 次，退避 0.4、1 秒。鉴权失败、风控、收藏写入和扫码检查不在此自动重试策略内。
-- 同一账号的并发读取合并，歌单等成功结果短时缓存；切换账号或收藏成功后清除缓存。歌单直接复用接口返回的歌曲，仅补充缺少的详情，并保持歌曲顺序。
-- 每次安装保存一个稳定的客户端标识；补齐播放接口要求的协议密钥初始化，不再将缺少初始化误报为普通网络故障。凭证仍由后台处理。
-- 增加 `npm run test:network`：在隔离目录检查真实首页推荐歌单、搜索、播放地址和一个未扫码二维码；不使用真实账号。
+```bash
+sudo apt remove cloud-music-player
+```
 
-公开接口已实测，但扫码完成授权仍需真实账号验收。手机端已经显示的环境异常拦截不代表已解除，处理方式见下。
+AppImage 用户退出程序后删除对应 AppImage 即可。卸载不会自动清除用户目录中的账号数据、壁纸、PEQ 或音乐下载。
 
-## 0.1.1 登录修复
+## 功能与操作
 
-- 修正依赖库扫码状态检查异常时丢失原始错误的问题，改用同一依赖的固定路径 API 调用。
-- 在一次扫码过程中保留服务端下发的匿名 Cookie，获取到登录凭证后若资料验证短暂失败，会重试验证，不要求重新扫码。
-- 每 4 秒检查扫码状态；连接错误最多自动退避重试 3 次（4、8、16 秒），沿用原二维码。关闭弹窗或切换登录方式会停止检查并取消本次会话。
-- 明确区分网络异常、二维码过期与网易云风控响应。收到风控响应后停止重试，短时间内限制重复生成二维码。
+- 搜索歌曲、歌手、专辑和歌单，查看详情、播放全部、加入队列、喜欢及本地下载。
+- 每日推荐、推荐歌单、排行榜、新专辑、私人 FM 和推荐模式漫游。
+- 扫码及本人 Cookie 登录；会话由后台处理，有安全系统密钥环时加密保存，否则仅本次运行有效。
+- 标准、较高、极高、无损、Hi-Res；界面区分所选与实际音质，显示试听状态。账号权限和版权决定可用内容。
+- 点击底部封面或歌名打开播放详情。评论默认展开；在“设置 → 外观与播放页”中关闭后不再请求评论。
+- “加入歌单”可把当前歌曲或歌曲行加入本人创建的可编辑歌单。“我喜欢的音乐”继续使用爱心按钮。
+- 输出设备在“设置 → 播放与输出”选择。常用列表只展示优先后端，其他路径在“显示高级音频后端”中；不同 HDMI 输出继续区分。
+- 指定设备断开时暂停并提示重新选择，切换设备保留当前歌曲与进度。
+- 下载中心支持并发、取消、重试及本地播放。下载使用服务端返回的真实格式，不保存试听片段为完整歌曲；音质不匹配时要求重新选择。
 
-如果手机 App 显示“设备环境异常 / 本次操作已拦截”，这表示网易云拒绝了这次登录。请停止反复扫码，按手机端官方提示处理，包括它提示的等待时间。客户端修复无法解除服务端限制，也不能承诺换二维码就能恢复。已有正常登录的网易云网页版会话，可在“Cookie 导入”中使用；该会话同样受账号权限和服务端限制约束。不要将 Cookie 发送到聊天。
+### 收藏失败与状态确认
 
-## 本地开发
+专辑和歌单收藏会读取当前状态、提交一次操作并回查结果。明确拒绝保留原状态；网络中断而结果未知时显示“状态待确认”，点击该按钮只刷新状态，不自动再次写入。
 
-仓库只纳入源码、测试、构建配置、文档和应用图标。`.gitignore` 对项目根目录采用允许列表，新增根目录文件默认忽略；运行会话（即使已加密）、Cookie、账号标识、设置、播放队列、历史、下载记录、浏览器数据、音频下载、日志和测试截图均排除在版本管理之外。新增公开的根目录文件时需明确调整允许列表；请勿强制添加个人数据。正常运行的个人状态仍保存在项目之外的 `~/.config/cloud-music-player/`，下载位于你选择的音乐目录。
+“设置 → 账号与隐私 → 查看诊断”显示本次运行的接口、错误码和认证字段是否存在，不显示字段值。登录失效或 CSRF 字段缺失时重新扫码；403 访问拒绝、频率限制和明确风控分别提示。手机端官方限制仍需按官方提示处理，客户端不能保证解除。
 
-需要 Node.js 24、npm、mpv；打包 Debian 包还需要 `dpkg-deb`、`du`。
+重新登录或导入 Cookie 请在应用内进行，不要把 Cookie、密码或令牌发到聊天、Issues 或源代码中。
+
+### 十段 PEQ
+
+点击播放栏的均衡器按钮，或进入“设置 → 音效”。编辑十段频率、增益、Q 和类型，支持峰值、低架、高架、单段旁路及前级。点击“应用 PEQ”生效，不重新开始歌曲；关闭总开关并应用可旁路整个均衡器。
+
+支持 APO／AutoEQ 格式和每行“频率、增益、Q”三列。以下为合成示例：
+
+```text
+Preamp: -4 dB
+Filter 1: ON PK Fc 1000 Hz Gain -3 dB Q 1
+Filter 2: ON LSC Fc 105 Hz Gain 2 dB Q 0.71
+```
+
+```text
+1000 -3 1
+105 2 0.71
+```
+
+导入先预览，确认后应用；最多十段，不支持的滤波器或越界值会明确报错。频率 20–20000 Hz、增益 ±24 dB、Q 0.1–20、前级 -30–12 dB。超出当前歌曲采样率有效范围的频段暂不应用并提示。PEQ 仅影响播放，不修改下载文件。
+
+### 频谱与壁纸
+
+在播放详情或“设置 → 外观与播放页”开启真实频谱，可选择单色、渐变及颜色。需要 PulseAudio 或 PipeWire 的 PulseAudio 兼容服务，以及 `pulseaudio-utils`。只监听本应用的 mpv 播放流，不录制麦克风、不采集整机混音、不保存 PCM。ALSA 直通或无法定位本应用播放流时显示不可用原因，音乐继续播放。
+
+壁纸支持 JPEG、PNG、WebP、GIF、BMP、AVIF 和 MP4、WebM、MOV、MKV、AVI。视频导入需要 FFmpeg，会转换为不高于 1080p / 30fps 的静音 MP4，可取消，失败保留原背景。图片最大 64 MB，视频最大 4 GB。
+
+可选择仅播放详情或整个应用使用壁纸，调整亮度、遮罩、模糊，并开启播放时旋转封面。视频始终静音循环，页面隐藏时暂停；封面旋转随音乐暂停。
+
+### 悬浮卡片
+
+在“设置 → 悬浮卡片”开启。卡片显示歌名、歌手、封面、进度，以及上下首、播放／暂停、喜欢和音量控制。
+
+开启后关闭主窗口只隐藏主界面，音乐与下载继续。卡片“返回主窗口”恢复界面；关闭卡片会停用卡片并恢复主窗口；电源按钮明确退出整个应用。
+
+保留原生 Wayland。置顶和程序恢复窗口位置受桌面协议限制；X11 会保存并校验位置。需要兼容窗口行为时可在完全退出后手动使用 `cloud-music-player --ozone-platform=x11`，应用不会自动切换。
+
+## 本机数据与仓库隐私
+
+状态位于 `~/.config/cloud-music-player/`，下载默认位于系统音乐目录下的“Libitum music 下载”，具体位置以设置为准。会话仅在有效密钥环下使用 Electron safeStorage 加密；不把 `basic_text` 当作安全存储。退出账号清除会话、队列和账号下载记录，已经下载的音频文件保留。
+
+壁纸、导入的 PEQ、播放队列、会话、历史及下载均属于本机数据。仓库根目录采用允许列表，资源目录只允许项目图标；依赖、构建、安装包、日志、截图和个人媒体继续忽略。不要强制添加私人文件。Release 只附明确生成的安装包及校验文件。
+
+## 开发、验证与打包
+
+需要 Node.js 24、npm、mpv、ffmpeg、pulseaudio-utils；打包 `.deb` 需要 `dpkg-deb` 和 `du`。
 
 ```bash
 npm ci
-# 如果 npm 的生命周期脚本策略没有自动下载 Electron：
+# 如果 Electron 安装脚本尚未运行：
 node node_modules/electron/install.js
 npm run dev
 ```
@@ -76,46 +129,22 @@ npm run dev
 ```bash
 npm run typecheck
 npm test
+npm run test:media
 npm run test:e2e
+npm run test:network
+npm run test:audio
 npm run package
+npm run audit:release -- --packaged
 ```
 
-`npm run package` 先使用 Electron Builder 生成 AppImage 和解包目录，再通过 `scripts/package-deb.cjs` 创建 Debian 包。单独生成 Debian 包可运行 `npm run package:deb`。首次构建需要联网下载 Electron 与打包工具。构建产物位于 `release/`。
+单元及 Electron 流程使用明确启用的合成测试数据与临时目录。正式安装包无法通过测试环境变量启用模拟账号。公开网络检查不使用真实账号；音频集成检查使用暂停的静音文件及临时虚拟输出，不录制麦克风，结束后清理。
 
-图标是项目内的矢量图形；可通过 `python3 scripts/generate-icon.py` 重新生成 PNG，不需要额外 Python 包。
+`npm run package` 生成 AppImage 和 `.deb`，产物位于 `release/`。`node scripts/smoke-packaged.cjs --network` 使用隔离目录检查正式包启动及真实公开首页。`npm run audit:release -- --packaged` 检查发布文件允许列表、敏感内容及打包根目录。
 
-## 架构
+真实账号验收仍需本人在应用内完成：扫码后收藏及取消一个歌单、一个专辑，在官方客户端核对，并重启检查状态。不要把凭证加入自动化脚本。详细验证边界见 [VALIDATION.md](VALIDATION.md)。
 
-- `src/shared/`：统一歌曲/歌单/专辑类型、IPC 命令与事件、歌词解析。
-- `src/main/`：Electron 主进程、密钥环会话、IPC 校验、mpv JSON IPC、播放队列；独立 utility process 承载 `NeteaseProvider` 和下载管理器。
-- `src/preload/`：只暴露有类型的调用及事件订阅，不提供文件系统、任意 shell 或任意 IPC 接口。
-- `src/renderer/`：React 页面、账户与下载对话框、播放栏和队列/歌词面板。
-- `tests/`：Vitest 核心行为测试与 Playwright Electron 流程测试。
-
-网易云依赖固定为 `@neteasecloudmusicapienhanced/api@4.41.1`，完整版本与校验值记录在 `package-lock.json`。播放地址与下载地址分别请求，账号权限、版权和网易云风控会影响结果；服务不可用时显示错误并允许重试。应用不启用该依赖的跨平台替代音源功能。
-
-状态保存在 `~/.config/cloud-music-player/` 的带版本号 JSON 文件中，使用串行原子写入。会话 Cookie 通过 Electron `safeStorage` 和系统密钥环加密；不把 `basic_text` 当成安全存储。退出登录会清除账号会话、队列和账号下载记录，已经下载的音频文件保留。
-
-下载按服务返回的 MP3/FLAC/M4A 等原始格式保存，名称包含歌曲 ID 和音质。不会覆盖已有同名文件；失败任务可重新下载，不支持断点续传。下载中的 `.part` 文件不作为完整文件使用，正常取消/失败会清理；若整个进程被强制杀死，可能留下隐藏的 `.part` 文件，可以手动删除。
-
-## 验证边界
-
-端到端测试在临时数据目录中运行，使用明确启用的本地 API 测试数据、回环 HTTP 音频服务和真实 mpv JSON IPC（`ao=null` 无声输出）。打包后的应用无法通过测试环境变量启用测试数据。测试不会操作真实网易云收藏，也不会使用开发者的登录凭证。
-
-真实账号与设备的人工验收步骤：
-
-1. 在应用内扫码，重启确认会话恢复，退出后确认清除。
-2. 查看每日推荐，搜索实际歌曲，收藏歌单与专辑，并在网易云官方客户端检查同步结果。
-3. 连续收听私人 FM 和探索/场景推荐，检查下一首、喜欢、不感兴趣。
-4. 在账号有权限的歌曲上切换音质，核对实际音质；下载后使用 `ffprobe 文件路径` 检查时长、编码并试听。
-5. 在 PipeWire / PulseAudio 桌面切换两个实际输出设备，检查进度与暂停状态；固定耳机或 DAC 后拔出，检查暂停和提示。
-
-自动测试不代替上述真实账号、服务和物理音频设备验收。
-
-有两个实际 PipeWire 输出设备时，可单独运行 `npm run test:audio`，使用完全静音、暂停的 WAV 验证设备切换与进度保持。此检查不修改系统默认输出，也不替代物理拔插验收。`node scripts/smoke-netease.cjs` 可检查未登录的真实公共接口；`node scripts/smoke-packaged.cjs` 可用隔离数据目录检查已打包应用的启动与设备枚举，附加 `--network` 可验证打包版本的真实公开首页和歌单详情。
-
-依赖审计：运行时 FTP 解析库使用 `basic-ftp@6.2.4` override 修复已知漏洞。Electron Builder 的部分开发依赖仍有 npm 审计提示，属于打包工具链，不随应用运行；没有使用强制跨大版本替换来掩盖这些提示。重新安装依赖后可运行 `npm audit --omit=dev` 核实运行时依赖。
+网易云接口锁定 `@neteasecloudmusicapienhanced/api@4.41.1`，不启用跨平台替代音源。首版范围之外仍包括音乐云盘、手机号验证码、多账号并行和其他音乐平台；不提供应用内自动更新。
 
 ## 许可证
 
-项目采用 MIT。第三方组件说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。mpv 由系统单独安装，参见对应发行版的许可证信息。
+MIT；第三方组件说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。mpv、FFmpeg、PulseAudio 工具通过系统单独安装，遵循各自许可证。

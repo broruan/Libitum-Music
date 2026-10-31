@@ -106,6 +106,7 @@ test('recommendation radio starts and settings persist theme', async () => {
   await page.getByRole('button', { name: '开始漫游', exact: true }).click()
   await expect(page.getByText('正在播放', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: '设置', exact: true }).click()
+  await page.getByRole('button', { name: '外观与播放页', exact: true }).click()
   await page.getByLabel('界面主题').selectOption('dark')
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
   await page.getByLabel('界面主题').selectOption('light')
@@ -114,8 +115,9 @@ test('recommendation radio starts and settings persist theme', async () => {
   await page.screenshot({ path: 'test-results/settings.png' })
 })
 test('logout removes account data and does not persist plaintext cookies', async () => {
+  await page.getByRole('button', { name: '账号与隐私', exact: true }).click()
   await page.getByRole('button', { name: '退出登录', exact: true }).click()
-  await expect(page.getByText('未登录', { exact: true })).toBeVisible()
+  await expect(page.getByText('尚未登录', { exact: true })).toBeVisible()
   const saved = JSON.parse(await readFile(join(directory, 'session.json'), 'utf8'))
   expect(saved.data).toBeNull()
   for (const file of ['settings.json', 'queue.json', 'downloads.json', 'session.json']) {

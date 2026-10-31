@@ -1,5 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { describe, expect, it, vi } from 'vitest'
+import { experienceDefaults } from '../../src/shared/preferences'
+import { defaultPeq } from '../../src/shared/peq'
 import { Player } from '../../src/main/player'
 import { normalizeTrack } from '../../src/main/normalize'
 import type { Mpv } from '../../src/main/mpv'
@@ -18,9 +20,26 @@ class FakeMpv extends EventEmitter {
   }
 }
 const track = (id: number) => normalizeTrack({ id, name: `Song ${id}`, dt: 60000 })
-const settings: Settings = { quality: 'exhigh', downloadQuality: 'exhigh', downloadDirectory: '/tmp', deviceId: 'auto', volume: 60, theme: 'system', mpvPath: 'mpv' }
+const settings: Settings = { ...experienceDefaults(), quality: 'exhigh', downloadQuality: 'exhigh', downloadDirectory: '/tmp', deviceId: 'auto', volume: 60, theme: 'system', mpvPath: 'mpv' }
 const flush = async () => { for (let i = 0; i < 10; i++) await Promise.resolve() }
 describe('player state transitions', () => {
+  it('replaces only its own PEQ filter and rolls back failed changes without losing playback state',async()=>{
+    const mpv=new FakeMpv();let filters:any[]=[{name:'format',label:'other'}],fail=false
+    const original=mpv.command.bind(mpv)
+    mpv.command=async command=>{
+      if(command[0]==='get_property'&&command[1]==='af')return structuredClone(filters)
+      if(command[0]==='set_property'&&command[1]==='af'){if(fail){fail=false;throw new Error('filter rejected')}filters=structuredClone(command[2] as any[]);return}
+      return original(command)
+    }
+    const save=vi.fn(),player=new Player(mpv as unknown as Mpv,{call:async()=>({})} as any,settings,()=>{},()=>{},save)
+    player.restore({queue:[track(1)],index:0,position:12,repeat:'list'})
+    const preset=defaultPeq();preset.enabled=true;preset.bands[0].gain=-3
+    await player.applyPeq(preset);preset.preamp=-4;await player.applyPeq(preset)
+    expect(filters.filter(f=>f.label==='libitum_peq')).toHaveLength(1);expect(filters[0].label).toBe('other')
+    const good=structuredClone(filters);fail=true;preset.preamp=-8
+    await expect(player.applyPeq(preset)).rejects.toThrow('filter rejected')
+    expect(filters).toEqual(good);expect(save).toHaveBeenCalledTimes(2);expect(player.state.position).toBe(12);expect(player.state.status).toBe('paused')
+  })
   it('ignores a slow stream resolution after the user selects another song', async () => {
     let resolveFirst: (value: any) => void = () => {}
     const backend = { call: vi.fn((method: string, args: any) => args.id === '1' ? new Promise(resolve => { resolveFirst = resolve }) : Promise.resolve({ url: 'https://example.com/2', quality: 'exhigh' })) }

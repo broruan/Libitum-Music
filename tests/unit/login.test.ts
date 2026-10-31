@@ -42,10 +42,10 @@ describe('QR login error recovery', () => {
     const problem = neteaseError({ body: { code: 403, msg: 'private data' } })
     expect(problem.message).not.toContain('private'); expect(transientLoginError(problem.code)).toBe(false)
   })
-  it('also classifies a resolved risk response rather than treating it as a generic unexpected QR status', async () => {
+  it('classifies a resolved rate limit separately', async () => {
     const api = createFixtureApi(); api.api = async () => ({ body: { code: 405, message: '操作频繁' } })
     const provider = new NeteaseProvider(api), qr = await provider.qrStart()
-    await expect(provider.qrCheck(qr.key)).rejects.toMatchObject({ code: 'RISK_BLOCKED' })
+    await expect(provider.qrCheck(qr.key)).rejects.toMatchObject({ code: 'RATE_LIMITED' })
   })
   it('does not finalize an in-flight QR login after its dialog was cancelled', async () => {
     let release: (value: any) => void = () => {}
@@ -61,7 +61,7 @@ describe('QR login error recovery', () => {
     api.api = vi.fn(async () => ({ body: { code: 803 }, cookie: ['MUSIC_U=fixture; Path=/; HttpOnly'] }))
     const provider = new NeteaseProvider(api), qr = await provider.qrStart()
     await expect(provider.qrCheck(qr.key)).rejects.toMatchObject({ code: 'NETWORK' })
-    expect(await provider.qrCheck(qr.key)).toMatchObject({ state: 'success', user: { id: '42' }, cookie: 'MUSIC_U=fixture' })
+    expect(await provider.qrCheck(qr.key)).toMatchObject({ state: 'success', user: { id: '42' }, cookie: 'MUSIC_U=fixture; __csrf=fixture-csrf' })
     expect(api.api).toHaveBeenCalledTimes(1)
   })
   it('stops polling an expired QR locally', async () => {

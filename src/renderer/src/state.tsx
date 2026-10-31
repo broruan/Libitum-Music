@@ -1,11 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type DependencyList, type ReactNode } from 'react'
-import type { Bootstrap, CollectionKind, Command, CommandMap, Quality, Track } from '../../shared/types'
+import type { Bootstrap, CollectionKind, Command, CommandMap, MediaImportState, Quality, Track } from '../../shared/types'
 
-export type Page = { type: 'home' } | { type: 'search'; query: string } | { type: 'detail'; kind: CollectionKind; id: string } | { type: 'library'; kind: 'likes' | 'playlists' | 'albums' } | { type: 'daily' } | { type: 'radio'; fm: boolean } | { type: 'downloads' } | { type: 'settings' }
+export type Page = { type: 'home' } | { type: 'search'; query: string } | { type: 'detail'; kind: CollectionKind; id: string } | { type: 'library'; kind: 'likes' | 'playlists' | 'albums' } | { type: 'daily' } | { type: 'radio'; fm: boolean } | { type: 'downloads' } | { type: 'nowPlaying' } | { type: 'settings'; section?: string }
 export async function request<K extends Command>(command: K, args?: CommandMap[K]['args']): Promise<CommandMap[K]['result']> {
   if (!window.music) throw new Error('请通过桌面应用启动Libitum music。')
   const result = await window.music.invoke(command, args)
-  if (!result.ok) throw Object.assign(new Error(result.error.message), { code: result.error.code })
+  if (!result.ok) throw Object.assign(new Error(result.error.message), { code: result.error.code, upstreamCode:result.error.upstreamCode })
   return result.data
 }
 export function useResource<T>(load: () => Promise<T>, dependencies: DependencyList, enabled = true) {
@@ -27,6 +27,8 @@ interface State {
   download: (tracks: Track[]) => void; downloadTracks: Track[] | null; setDownloadTracks: (tracks: Track[] | null) => void
   libraryRevision: number; likedIds: Set<string>; toggleLike: (track: Track) => Promise<void>; liking: Set<string>
   panel: 'queue' | 'lyrics' | null; setPanel: (panel: 'queue' | 'lyrics' | null) => void
+  playlistTrack: Track | null; setPlaylistTrack: (track: Track | null) => void; addToPlaylist: (track: Track) => void
+  peqOpen: boolean; setPeqOpen: (open: boolean) => void; mediaImport: MediaImportState
 }
 const Context = createContext<State | null>(null)
 export function useApp() { const value = useContext(Context); if (!value) throw new Error('应用尚未初始化'); return value }
@@ -37,12 +39,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<{ id: number; message: string }[]>([]), [libraryRevision, setLibraryRevision] = useState(0)
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set()), [liking, setLiking] = useState<Set<string>>(new Set())
   const [panel, setPanel] = useState<'queue' | 'lyrics' | null>(null)
+  const [playlistTrack,setPlaylistTrack]=useState<Track|null>(null),[peqOpen,setPeqOpen]=useState(false)
+  const [mediaImport,setMediaImport]=useState<MediaImportState>({status:'idle',progress:0})
   const toastId = useRef(0)
   const toast = useCallback((message: string) => { const id = ++toastId.current; setToasts(list => [...list.slice(-2), { id, message }]); setTimeout(() => setToasts(list => list.filter(item => item.id !== id)), 5500) }, [])
   useEffect(() => {
     if (!window.music) { setFailure('请使用桌面客户端启动Libitum music：npm run dev'); return }
     const off = window.music.onEvent(event => {
       if (event.type === 'notice') { toast(event.data); return }
+      if (event.type === 'mediaImport') { setMediaImport(event.data); return }
       if (event.type === 'library') { setLibraryRevision(value => value + 1); return }
       setData(current => {
         if (!current) return current
@@ -57,7 +62,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return off
   }, [toast])
   useEffect(() => { document.documentElement.dataset.theme = data?.settings.theme || 'system' }, [data?.settings.theme])
-  useEffect(() => { setLikedIds(new Set()) }, [data?.session.user?.id])
+  useEffect(() => { setLikedIds(new Set()); setPlaylistTrack(null) }, [data?.session.user?.id])
   useEffect(() => {
     let alive = true
     if (data?.session.user) {
@@ -66,7 +71,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
     return () => { alive = false }
   }, [data?.session.user?.id, libraryRevision])
-  const act = async (action: Promise<unknown>, message?: string) => { try { await action; if (message) toast(message) } catch (error) { const problem = error as Error & { code?: string }; if (problem.code === 'AUTH_REQUIRED' || problem.code === 'AUTH_EXPIRED') setLoginOpen(true); toast(problem.message) } }
+  const act = async (action: Promise<unknown>, message?: string) => { try { await action; if (message) toast(message) } catch (error) { const problem = error as Error & { code?: string }; if (['AUTH_REQUIRED','AUTH_EXPIRED','AUTH_INCOMPLETE'].includes(problem.code || '')) setLoginOpen(true); toast(problem.message) } }
   if (failure) return <div className="boot-screen"><h1>Libitum music暂时无法启动</h1><p>{failure}</p><button className="button primary" onClick={() => location.reload()}>重试</button></div>
   if (!data) return <div className="boot-screen"><div className="brand-mark large">♪</div><h1>Libitum music</h1><p>正在准备你的音乐空间…</p><div className="spinner" /></div>
   const navigate = (target: Page) => { setHistory(list => [...list.slice(-29), page]); setPage(target) }
@@ -78,6 +83,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     catch (error) { toast((error as Error).message) }
     finally { setLiking(ids => { const next = new Set(ids); next.delete(track.id); return next }) }
   }
-  return <Context.Provider value={{ data, page, navigate, back: () => { if (history.length) { setPage(history[history.length - 1]); setHistory(list => list.slice(0, -1)) } }, canBack: !!history.length, login: () => setLoginOpen(true), loginOpen, setLoginOpen, toast, toasts, act, download: tracks => { if (!data.session.user) setLoginOpen(true); else if (tracks.length) setDownloadTracks(tracks) }, downloadTracks, setDownloadTracks, libraryRevision, likedIds, toggleLike, liking, panel, setPanel }}>{children}</Context.Provider>
+  return <Context.Provider value={{ data, page, navigate, back: () => { if (history.length) { setPage(history[history.length - 1]); setHistory(list => list.slice(0, -1)) } }, canBack: !!history.length, login: () => setLoginOpen(true), loginOpen, setLoginOpen, toast, toasts, act, download: tracks => { if (!data.session.user) setLoginOpen(true); else if (tracks.length) setDownloadTracks(tracks) }, downloadTracks, setDownloadTracks, libraryRevision, likedIds, toggleLike, liking, panel, setPanel,playlistTrack,setPlaylistTrack,addToPlaylist:track=>{if(!data.session.user)setLoginOpen(true);else setPlaylistTrack(track)},peqOpen,setPeqOpen,mediaImport }}>{children}</Context.Provider>
 }
 export function qualityName(quality: string) { const names: Record<string, string> = { standard: '标准', higher: '较高', exhigh: '极高', lossless: '无损', hires: 'Hi-Res' }; return names[quality] || quality }

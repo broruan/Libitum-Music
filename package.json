@@ -1,6 +1,6 @@
 {
   "name": "cloud-music-player",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Libitum music · Linux 网易云音乐桌面客户端",
   "main": "out/main/index.js",
   "desktopName": "cloud-music-player.desktop",
@@ -15,12 +15,15 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "npm run build && playwright test",
-    "test:audio": "vitest run --config vitest.audio.config.ts",
+    "test:audio": "npm run build && vitest run --config vitest.audio.config.ts",
     "test:network": "vitest run --config vitest.network.config.ts",
     "preview": "electron-vite preview",
     "package": "npm run build && electron-builder --linux AppImage --x64 && node scripts/package-deb.cjs",
     "package:deb": "npm run package:dir && node scripts/package-deb.cjs",
-    "package:dir": "npm run build && electron-builder --linux --dir --x64"
+    "package:dir": "npm run build && electron-builder --linux --dir --x64",
+    "test:media": "vitest run --config vitest.media.config.ts",
+    "audit:release": "node scripts/audit-release.cjs",
+    "test:desktop": "npm run build && node scripts/smoke-desktop.cjs"
   },
   "build": {
     "appId": "io.github.cloudmusicplayer.desktop",
@@ -67,7 +70,9 @@
         "xdg-utils",
         "libatspi2.0-0",
         "libuuid1",
-        "libsecret-1-0"
+        "libsecret-1-0",
+        "ffmpeg",
+        "pulseaudio-utils"
       ],
       "maintainer": "Libitum music contributors"
     },
@@ -91,5 +96,10 @@
     "typescript": "7.0.2",
     "vite": "8.3.5",
     "vitest": "5.0.5"
+  },
+  "homepage": "https://github.com/kuranshi/Libitum-Music",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kuranshi/Libitum-Music.git"
   }
 }

@@ -14,6 +14,7 @@ const port = process.parentPort!
 let provider: NeteaseProvider
 let downloads: Downloads
 let sessionVersion = 0
+let sessionEpoch = 0
 function send(value: unknown) { port.postMessage(value) }
 async function dispatch(method: string, args: any) {
   if (method === 'init') {
@@ -25,7 +26,7 @@ async function dispatch(method: string, args: any) {
       const upstreamRequire = createRequire(require.resolve('@neteasecloudmusicapienhanced/api'))
       upstreamRequire('axios').default.defaults.timeout = 10000
     }
-    provider = new NeteaseProvider(api, args.testMode ? {} : await runtimeOptions(api, args.userData, process.env.TMPDIR!))
+    provider = new NeteaseProvider(api, { ...(args.testMode ? {} : await runtimeOptions(api, args.userData, process.env.TMPDIR!)), onCredentials: (cookie, user) => send({ event: 'credentials', data: { cookie, user, epoch: sessionEpoch } }) })
     downloads = new Downloads(new JsonStore<DownloadTask[]>(join(args.userData, 'downloads.json'), []), async (id, quality) => {
       const version = sessionVersion
       try { return await provider.resolve(id, quality, true) }
@@ -36,20 +37,25 @@ async function dispatch(method: string, args: any) {
   }
   if (!provider || !downloads) throw new MusicError('NOT_READY', '后台尚未就绪。')
   switch (method) {
-    case 'session.set': sessionVersion++; provider.setSession(args.cookie, args.user); downloads.setOwner(args.user?.id || ''); return true
+    case 'session.set': sessionVersion++; sessionEpoch = args.epoch ?? 0; provider.setSession(args.cookie, args.user); downloads.setOwner(args.user?.id || ''); return true
     case 'session.clear': sessionVersion++; provider.setSession('', null); await downloads.clearOwner(); return true
     case 'auth.qrStart': return provider.qrStart()
     case 'auth.qrCheck': return provider.qrCheck(args.key)
     case 'auth.qrCancel': return provider.qrCancel(args.key)
-    case 'auth.importCookie': return { user: await provider.validateCookie(args.cookie), cookie: args.cookie }
+    case 'auth.importCookie': return provider.validateSession(args.cookie)
     case 'catalog.search': return provider.search(args.keywords, args.kind, args.offset)
     case 'catalog.detail': return provider.detail(args.kind, args.id, args.offset)
     case 'catalog.allTracks': return provider.allTracks(args.kind, args.id)
     case 'catalog.lyrics': return provider.lyrics(args.id)
+    case 'catalog.comments': return provider.comments(args.id, args.offset)
     case 'home.section': return provider.home(args.section)
     case 'library.list': return provider.library(args.kind, args.offset)
     case 'library.like': return provider.like(args.id, args.like)
     case 'library.subscribe': return provider.subscribe(args.kind, args.id, args.subscribe)
+    case 'library.subscription': return provider.subscription(args.kind, args.id)
+    case 'library.writablePlaylists': return provider.writablePlaylists(args.offset)
+    case 'library.addToPlaylist': return provider.addToPlaylist(args.id, args.trackId)
+    case 'library.diagnostics': return provider.diagnostics()
     case 'resolve': return provider.resolve(args.id, args.quality)
     case 'radio': return provider.radio(args)
     case 'dislike': return provider.dislike(args.id)

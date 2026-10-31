@@ -1,0 +1,19 @@
+// Real compositor smoke with isolated fixture data and silent mpv, never a user profile.
+const {_electron:electron}=require('@playwright/test')
+const fs=require('node:fs/promises'),os=require('node:os'),path=require('node:path')
+async function check(mode){
+  const directory=await fs.mkdtemp(path.join(os.tmpdir(),`libitum-${mode}-`));let instance
+  try{
+    const env={...process.env,CLOUD_MUSIC_TEST:'1',CLOUD_MUSIC_TEST_DIR:directory};delete env.ELECTRON_RUN_AS_NODE
+    instance=await electron.launch({args:[path.resolve('out/main/index.js'),'--no-sandbox','--disable-gpu',`--ozone-platform=${mode}`,'--password-store=basic'],env,timeout:20000})
+    const main=await instance.firstWindow();await main.waitForSelector('.app-shell',{timeout:20000})
+    const opening=instance.waitForEvent('window')
+    const enabled=await main.evaluate(()=>window.music.invoke('settings.update',{floatingEnabled:true}));if(!enabled.ok)throw new Error('Mini card did not enable')
+    const card=await opening;await card.waitForSelector('.mini-player')
+    const denied=await card.evaluate(()=>window.music.invoke('auth.qrStart'));if(denied.ok)throw new Error('Mini IPC capability leak')
+    const info=await instance.evaluate(({BrowserWindow})=>({windows:BrowserWindow.getAllWindows().length,alwaysOnTop:BrowserWindow.getAllWindows().find(w=>w.webContents.getURL().includes('#mini')).isAlwaysOnTop()}))
+    await main.evaluate(()=>window.music.invoke('settings.update',{floatingEnabled:false}))
+    console.log(JSON.stringify({mode,...info,restrictedIPC:true,profile:'isolated-fixture',audio:'null'}))
+  }finally{if(instance)await instance.close();await fs.rm(directory,{recursive:true,force:true})}
+}
+(async()=>{for(const mode of ['wayland','x11'])await check(mode)})().catch(error=>{console.error(error.message);process.exitCode=1})

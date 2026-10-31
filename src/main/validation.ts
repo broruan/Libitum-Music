@@ -1,6 +1,7 @@
 import { MusicError } from '../shared/errors'
 import { QUALITIES, type Command, type Track } from '../shared/types'
-const commands = new Set<Command>(['app.bootstrap', 'auth.qrStart', 'auth.qrCheck', 'auth.qrCancel', 'auth.importCookie', 'auth.logout', 'catalog.search', 'catalog.detail', 'catalog.allTracks', 'catalog.lyrics', 'home.section', 'library.list', 'library.like', 'library.subscribe', 'player.play', 'player.toggle', 'player.next', 'player.previous', 'player.seek', 'player.volume', 'player.repeat', 'player.quality', 'player.device', 'player.refreshDevices', 'player.remove', 'player.radio', 'player.dislike', 'downloads.add', 'downloads.cancel', 'downloads.retry', 'downloads.reveal', 'downloads.play', 'settings.update', 'settings.pickDirectory', 'app.openExternal'])
+import { validPeq } from '../shared/peq'
+const commands = new Set<Command>(['app.bootstrap', 'auth.qrStart', 'auth.qrCheck', 'auth.qrCancel', 'auth.importCookie', 'auth.logout', 'catalog.search', 'catalog.detail', 'catalog.allTracks', 'catalog.lyrics', 'catalog.comments', 'home.section', 'library.list', 'library.like', 'library.subscribe', 'library.subscription', 'library.writablePlaylists', 'library.addToPlaylist', 'library.diagnostics', 'player.play', 'player.toggle', 'player.next', 'player.previous', 'player.seek', 'player.volume', 'player.repeat', 'player.quality', 'player.device', 'player.refreshDevices', 'player.remove', 'player.radio', 'player.dislike', 'downloads.add', 'downloads.cancel', 'downloads.retry', 'downloads.reveal', 'downloads.play', 'settings.update', 'settings.pickDirectory', 'peq.apply', 'peq.import', 'wallpaper.import', 'wallpaper.cancel', 'wallpaper.clear', 'spectrum.subscribe', 'mini.bootstrap', 'mini.like', 'mini.close', 'window.restore', 'app.quit', 'app.openExternal'])
 function assert(value: unknown): asserts value { if (!value) throw new MusicError('INVALID_ARGUMENT', '操作参数无效，请刷新后重试。') }
 const text = (v: unknown, max = 512): v is string => typeof v === 'string' && v.length > 0 && v.length <= max
 const id = (v: unknown) => typeof v === 'string' && /^\d{1,24}$/.test(v)
@@ -11,11 +12,11 @@ export function isTrack(v: any): v is Track {
 }
 export function validateCommand(command: unknown, args: any): asserts command is Command {
   assert(typeof command === 'string' && commands.has(command as Command))
-  const noArgs = ['app.bootstrap', 'auth.qrStart', 'auth.logout', 'player.toggle', 'player.next', 'player.previous', 'player.refreshDevices', 'player.dislike', 'settings.pickDirectory']
+  const noArgs = ['app.bootstrap', 'auth.qrStart', 'auth.logout', 'player.toggle', 'player.next', 'player.previous', 'player.refreshDevices', 'player.dislike', 'settings.pickDirectory', 'peq.import', 'wallpaper.import', 'wallpaper.cancel', 'wallpaper.clear', 'mini.bootstrap', 'mini.like', 'mini.close', 'window.restore', 'app.quit', 'library.diagnostics']
   if (noArgs.includes(command)) { assert(args === undefined || args === null); return }
   assert(args && typeof args === 'object' && !Array.isArray(args))
-  if (['catalog.detail', 'catalog.allTracks', 'catalog.lyrics', 'library.like', 'library.subscribe'].includes(command)) assert(id(args.id))
-  if (['catalog.search', 'catalog.detail', 'library.list'].includes(command)) assert(Number.isInteger(args.offset) && finite(args.offset, 0, 1000000))
+  if (['catalog.detail', 'catalog.allTracks', 'catalog.lyrics', 'catalog.comments', 'library.like', 'library.subscribe', 'library.subscription', 'library.addToPlaylist'].includes(command)) assert(id(args.id))
+  if (['catalog.search', 'catalog.detail', 'catalog.comments', 'library.list', 'library.writablePlaylists'].includes(command)) assert(Number.isInteger(args.offset) && finite(args.offset, 0, 1000000))
   switch (command) {
     case 'auth.qrCheck': case 'auth.qrCancel': assert(text(args.key, 512)); break
     case 'auth.importCookie': assert(text(args.cookie, 32768) && !/[\r\n\x00]/.test(args.cookie) && /(?:^|;\s*)MUSIC_U=/.test(args.cookie)); break
@@ -25,6 +26,10 @@ export function validateCommand(command: unknown, args: any): asserts command is
     case 'library.list': assert(['likes', 'playlists', 'albums'].includes(args.kind)); break
     case 'library.like': assert(typeof args.like === 'boolean'); break
     case 'library.subscribe': assert(['album', 'playlist'].includes(args.kind) && typeof args.subscribe === 'boolean'); break
+    case 'library.subscription': assert(['album', 'playlist'].includes(args.kind)); break
+    case 'library.addToPlaylist': assert(id(args.trackId)); break
+    case 'peq.apply': assert(validPeq(args)); break
+    case 'spectrum.subscribe': assert(typeof args.active === 'boolean'); break
     case 'player.play': case 'downloads.add':
       assert(Array.isArray(args.tracks) && args.tracks.length > 0 && args.tracks.length <= 10000 && args.tracks.every(isTrack))
       if (command === 'downloads.add') assert(quality(args.quality))
@@ -39,10 +44,17 @@ export function validateCommand(command: unknown, args: any): asserts command is
     case 'player.radio': assert(['FM', 'DEFAULT', 'FAMILIAR', 'EXPLORE', 'SCENE_RCMD'].includes(args.mode)); if (args.mode === 'SCENE_RCMD') assert(typeof args.scene === 'string' && /^[A-Z_]{2,40}$/.test(args.scene)); break
     case 'downloads.cancel': case 'downloads.retry': case 'downloads.reveal': case 'downloads.play': assert(text(args.id, 100)); if (args.quality !== undefined) assert(quality(args.quality)); break
     case 'settings.update':
-      assert(Object.keys(args).every(key => ['downloadQuality', 'theme', 'mpvPath'].includes(key)))
+      assert(Object.keys(args).every(key => ['downloadQuality', 'theme', 'mpvPath', 'commentsEnabled', 'rotateCover', 'visualMode', 'wallpaperScope', 'wallpaperBrightness', 'wallpaperOverlay', 'wallpaperBlur', 'floatingEnabled', 'spectrum'].includes(key)))
       if (args.downloadQuality !== undefined) assert(quality(args.downloadQuality))
       if (args.theme !== undefined) assert(['system', 'light', 'dark'].includes(args.theme))
       if (args.mpvPath !== undefined) assert(text(args.mpvPath, 1024) && (args.mpvPath === 'mpv' || args.mpvPath.startsWith('/')) && !/[\x00-\x1f]/.test(args.mpvPath))
+      for (const key of ['commentsEnabled', 'rotateCover', 'floatingEnabled']) if (args[key] !== undefined) assert(typeof args[key] === 'boolean')
+      if (args.visualMode !== undefined) assert(['cover', 'wallpaper'].includes(args.visualMode))
+      if (args.wallpaperScope !== undefined) assert(['player','app'].includes(args.wallpaperScope))
+      if (args.wallpaperBrightness !== undefined) assert(finite(args.wallpaperBrightness,0.1,1))
+      if (args.wallpaperOverlay !== undefined) assert(finite(args.wallpaperOverlay,0,0.9))
+      if (args.wallpaperBlur !== undefined) assert(finite(args.wallpaperBlur,0,40))
+      if (args.spectrum !== undefined) assert(args.spectrum && typeof args.spectrum.enabled === 'boolean' && typeof args.spectrum.gradient === 'boolean' && /^#[a-f0-9]{6}$/i.test(args.spectrum.color) && /^#[a-f0-9]{6}$/i.test(args.spectrum.secondaryColor))
       break
     case 'app.openExternal': {
       assert(text(args.url, 2048))

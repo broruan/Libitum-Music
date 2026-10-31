@@ -5,17 +5,26 @@ export function createFixtureApi(audioUrl = '', qrScenario = ''): ApiModule {
   const user = { userId: 42, nickname: '测试听众', avatarUrl: '' }
   let likes = [1001]
   let subscribed = false
+  let albumSubscribed = false
+  const ownTracks: typeof songs = []
   let qrChecks = 0, qrKeys = 0
   const playlist = () => ({ id: 101, name: '晚风与生活', coverImgUrl: '', description: '用于自动验收的本地测试歌单。', trackCount: songs.length, creator: { userId: 43, nickname: 'Libitum music编辑部' }, subscribed, trackIds: songs.map(song => ({ id: song.id })), tracks: songs })
   const album = { id: 201, name: '一起听见', picUrl: '', description: '一张用于验收的测试专辑。', artist: { id: 301, name: 'Libitum music测试歌手' }, size: songs.length }
+  const ownPlaylist = () => ({ id: 102, name: '我的测试歌单', creator: { userId: 42, nickname: '测试听众' }, trackCount: ownTracks.length, trackIds: ownTracks.map(s => ({ id: s.id })), tracks: ownTracks })
   const response = (body: Record<string, any>) => Promise.resolve({ body: { code: 200, ...body } })
   const api: ApiModule = {
-    login_status: p => response({ data: { profile: p.cookie === 'MUSIC_U=fixture' ? user : null } }),
+    login_status: p => Promise.resolve({ body: { code: 200, data: { profile: /(?:^|;\s*)MUSIC_U=fixture(?:;|$)/.test(String(p.cookie)) ? user : null } }, cookie: /(?:^|;\s*)MUSIC_U=fixture(?:;|$)/.test(String(p.cookie)) ? ['__csrf=fixture-csrf; Path=/; HttpOnly'] : [] }),
     login_qr_key: () => response({ data: { unikey: `fixture-qr-${++qrKeys}` } }),
     login_qr_create: p => response({ data: { qrimg: 'data:image/svg+xml;base64,' + Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180"><desc>${String(p.key).replace(/[^a-z0-9-]/gi, '')}</desc><rect width="180" height="180" fill="white"/><path d="M10 10h50v50H10zM120 10h50v50h-50zM10 120h50v50H10zM80 80h90v90H80z" fill="black"/></svg>`).toString('base64') } }),
     login_qr_check: () => response({ code: 801 }),
     api: p => {
-      if (p.uri === '/api/v6/playlist/detail') return response({ playlist: playlist() })
+      if(p.uri==='/api/playlist/subscribe'||p.uri==='/api/playlist/unsubscribe') { subscribed=p.uri==='/api/playlist/subscribe';return response({}) }
+      if (p.uri === '/api/v6/playlist/detail') return response({ playlist: String((p.data as any)?.id) === '102' ? ownPlaylist() : playlist() })
+      if (p.uri === '/api/playlist/manipulate/tracks') {
+        const data = p.data as any
+        for (const id of JSON.parse(data.trackIds)) { const song = songs.find(s => String(s.id) === String(id)); if (song && !ownTracks.includes(song)) ownTracks.push(song) }
+        return response({})
+      }
       if (p.uri === '/api/login/qrcode/client/login') {
         qrChecks++
         if (qrScenario === 'transient' && qrChecks === 1) return Promise.reject({ body: { code: 502, msg: 'read ECONNRESET' } })
@@ -29,15 +38,16 @@ export function createFixtureApi(audioUrl = '', qrScenario = ''): ApiModule {
     playlist_detail: () => response({ playlist: playlist() }),
     song_detail: p => response({ songs: songs.filter(song => String(p.ids).split(',').includes(String(song.id))) }),
     album: () => response({ album, songs }),
-    album_detail_dynamic: () => response({ isSub: subscribed }),
+    album_detail_dynamic: () => response({ isSub: albumSubscribed }),
     artists: () => response({ artist: { id: 301, name: 'Libitum music测试歌手' }, hotSongs: songs }),
     recommend_songs: () => response({ data: { dailySongs: songs } }),
     recommend_resource: () => response({ recommend: [playlist()] }), personalized: () => response({ result: [playlist()] }),
     toplist: () => response({ list: [playlist()] }), album_new: () => response({ albums: [album] }),
-    likelist: () => response({ ids: likes }), user_playlist: () => response({ playlist: [playlist()], more: false }),
-    album_sublist: () => response({ data: [{ ...album, subscribed: true }], count: 1 }),
+    likelist: () => response({ ids: likes }), user_playlist: () => response({ playlist: [ownPlaylist(), ...(subscribed ? [playlist()] : [])], more: false }),
+    album_sublist: () => response({ data: albumSubscribed ? [{ ...album, subscribed: true }] : [], count: albumSubscribed ? 1 : 0 }),
     like: p => { likes = p.like ? [...new Set([Number(p.id), ...likes])] : likes.filter(id => id !== Number(p.id)); return response({}) },
-    playlist_subscribe: p => { subscribed = p.t === 1; return response({}) }, album_sub: p => { subscribed = p.t === 1; return response({}) },
+    playlist_subscribe: p => { subscribed = p.t === 1; return response({}) }, album_sub: p => { albumSubscribed = p.t === 1; return response({}) },
+    comment_music: p => response({ hotComments: [{ commentId: 1, content: '愿每一段旋律都带来好心情。', user: { nickname: '测试听众', avatarUrl: '' }, likedCount: 128, time: 1700000000000 }], comments: Number(p.offset) ? [] : [{ commentId: 2, content: '今天也在认真听歌。', user: { nickname: '音乐朋友' }, likedCount: 2, time: 1700000001000 }], total: 1, more: false }),
     lyric: () => response({ lrc: { lyric: '[00:00.00]晚风轻轻经过\n[00:05.00]音乐在这里停留\n[00:10.00]一起听见生活' } }),
     personal_fm: () => response({ data: songs }), personal_fm_mode: () => response({ data: songs }), fm_trash: () => response({}), scrobble: () => response({}),
     song_url_v1: p => response({ data: [{ id: p.id, url: audioUrl, level: p.level, br: 320000, type: 'wav' }] }),

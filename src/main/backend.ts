@@ -16,7 +16,7 @@ export class WorkerBackend extends EventEmitter {
       if (!pending) return
       clearTimeout(pending.timer); this.pending.delete(message.id)
       if (message.ok) pending.resolve(message.data)
-      else pending.reject(new MusicError(message.error.code, message.error.message))
+      else pending.reject(new MusicError(message.error.code, message.error.message, message.error.upstreamCode))
     })
     this.child.on('exit', () => {
       for (const pending of this.pending.values()) { clearTimeout(pending.timer); pending.reject(new MusicError('WORKER_EXIT', '音乐服务已退出，请重新启动应用。')) }

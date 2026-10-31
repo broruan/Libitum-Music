@@ -30,7 +30,23 @@ export interface RadioSpec { mode: 'FM' | 'DEFAULT' | 'FAMILIAR' | 'EXPLORE' | '
 export const SCENES = { EXERCISE: '运动', FOCUS: '专注', SLEEP_HELP: '助眠', RELAX: '放松', CHEERFUL: '欢快', CURE: '治愈', COMMUTE: '通勤', COFFEE_SHOP: '咖啡馆', ROCK: '摇滚', LIGHT: '轻音乐', ACG: '二次元', JAZZ: '爵士' } as const
 export interface Stream { url: string; quality: string; bitrate: number; format: string; size: number; trial: boolean }
 export interface Lyrics { original: string; translated: string }
-export interface AudioDevice { id: string; label: string }
+export interface AudioDevice { id: string; label: string; backend?: string; key?: string; advanced?: boolean }
+export interface MusicComment { id: string; content: string; author: string; avatarUrl: string; time: number; likes: number; replies: { author: string; content: string }[] }
+export interface CommentPage { hot: MusicComment[]; items: MusicComment[]; total: number; more: boolean }
+export interface SubscriptionResult { subscribed: boolean | null; confirmed: boolean }
+export interface Diagnostic { operation: string; endpoint: string; code: string; hasCredential: boolean; hasCsrf: boolean; time: number }
+export interface PeqBand { enabled: boolean; type: 'PK' | 'LS' | 'HS'; frequency: number; gain: number; q: number }
+export interface PeqSettings { enabled: boolean; preamp: number; bands: PeqBand[] }
+export interface Wallpaper { id: string; kind: 'image' | 'video'; name: string }
+export interface MediaImportState { status: 'idle' | 'working' | 'completed' | 'failed' | 'cancelled'; progress: number; error?: string }
+export interface SpectrumFrame { bins: number[]; status: 'active' | 'idle' | 'unavailable'; reason?: string }
+export interface MiniState { track: Track | null; status: PlayerState['status']; position: number; duration: number; volume: number; liked: boolean }
+export interface ExperienceSettings {
+  commentsEnabled: boolean; rotateCover: boolean; visualMode: 'cover' | 'wallpaper'; wallpaperScope: 'player' | 'app'
+  wallpaper: Wallpaper | null; wallpaperBrightness: number; wallpaperOverlay: number; wallpaperBlur: number; floatingEnabled: boolean
+  floatingBounds?: { x: number; y: number; width: number; height: number }
+  peq: PeqSettings; spectrum: { enabled: boolean; color: string; secondaryColor: string; gradient: boolean }
+}
 export type RepeatMode = 'list' | 'one' | 'shuffle'
 export interface PlayerState {
   queue: Track[]; index: number; status: 'idle' | 'loading' | 'playing' | 'paused' | 'error'
@@ -38,14 +54,14 @@ export interface PlayerState {
   actualQuality: string; bitrate: number; trial: boolean; deviceId: string; devices: AudioDevice[]
   available: boolean; error: string | null; notice: string | null; radio: RadioSpec | null
 }
-export interface Settings { quality: Quality; downloadQuality: Quality; downloadDirectory: string; deviceId: string; volume: number; theme: 'system' | 'light' | 'dark'; mpvPath: string }
+export interface Settings extends ExperienceSettings { quality: Quality; downloadQuality: Quality; downloadDirectory: string; deviceId: string; deviceKey?: string; volume: number; theme: 'system' | 'light' | 'dark'; mpvPath: string }
 export type DownloadStatus = 'queued' | 'resolving' | 'downloading' | 'completed' | 'failed' | 'cancelled' | 'interrupted'
 export interface DownloadTask {
   id: string; ownerId: string; track: Track; quality: Quality; actualQuality?: string
   status: DownloadStatus; received: number; total: number; path?: string; error?: string; createdAt: number
 }
 export interface Bootstrap { session: Session; settings: Settings; player: PlayerState; downloads: DownloadTask[]; version: string }
-export interface AppError { code: string; message: string }
+export interface AppError { code: string; message: string; upstreamCode?: number }
 export type Result<T> = { ok: true; data: T } | { ok: false; error: AppError }
 
 export interface CommandMap {
@@ -59,10 +75,15 @@ export interface CommandMap {
   'catalog.detail': { args: { kind: CollectionKind; id: string; offset: number }; result: Detail }
   'catalog.allTracks': { args: { kind: CollectionKind; id: string }; result: Track[] }
   'catalog.lyrics': { args: { id: string }; result: Lyrics }
+  'catalog.comments': { args: { id: string; offset: number }; result: CommentPage }
   'home.section': { args: { section: HomeSection }; result: HomeResult }
   'library.list': { args: { kind: LibraryKind; offset: number }; result: LibraryResult }
   'library.like': { args: { id: string; like: boolean }; result: void }
-  'library.subscribe': { args: { kind: 'album' | 'playlist'; id: string; subscribe: boolean }; result: void }
+  'library.subscribe': { args: { kind: 'album' | 'playlist'; id: string; subscribe: boolean }; result: SubscriptionResult }
+  'library.subscription': { args: { kind: 'album' | 'playlist'; id: string }; result: SubscriptionResult }
+  'library.writablePlaylists': { args: { offset: number }; result: { collections: Playlist[]; more: boolean } }
+  'library.addToPlaylist': { args: { id: string; trackId: string }; result: { alreadyPresent: boolean } }
+  'library.diagnostics': { args: void; result: Diagnostic[] }
   'player.play': { args: { tracks: Track[]; index?: number; append?: boolean }; result: void }
   'player.toggle': { args: void; result: void }
   'player.next': { args: void; result: void }
@@ -81,12 +102,23 @@ export interface CommandMap {
   'downloads.retry': { args: { id: string; quality?: Quality }; result: void }
   'downloads.reveal': { args: { id: string }; result: void }
   'downloads.play': { args: { id: string }; result: void }
-  'settings.update': { args: Partial<Pick<Settings, 'downloadQuality' | 'theme' | 'mpvPath'>>; result: Settings }
+  'settings.update': { args: Partial<Pick<Settings, 'downloadQuality' | 'theme' | 'mpvPath' | 'commentsEnabled' | 'rotateCover' | 'visualMode' | 'wallpaperScope' | 'wallpaperBrightness' | 'wallpaperOverlay' | 'wallpaperBlur' | 'floatingEnabled' | 'spectrum'>>; result: Settings }
   'settings.pickDirectory': { args: void; result: Settings }
+  'peq.apply': { args: PeqSettings; result: Settings }
+  'peq.import': { args: void; result: PeqSettings | null }
+  'wallpaper.import': { args: void; result: void }
+  'wallpaper.cancel': { args: void; result: void }
+  'wallpaper.clear': { args: void; result: Settings }
+  'spectrum.subscribe': { args: { active: boolean }; result: void }
+  'mini.bootstrap': { args: void; result: MiniState }
+  'mini.like': { args: void; result: void }
+  'mini.close': { args: void; result: void }
+  'window.restore': { args: void; result: void }
+  'app.quit': { args: void; result: void }
   'app.openExternal': { args: { url: string }; result: void }
 }
 export type Command = keyof CommandMap
-export type AppEvent = { type: 'player'; data: PlayerState } | { type: 'session'; data: Session } | { type: 'downloads'; data: DownloadTask[] } | { type: 'settings'; data: Settings } | { type: 'library'; data: null } | { type: 'notice'; data: string }
+export type AppEvent = { type: 'player'; data: PlayerState } | { type: 'session'; data: Session } | { type: 'downloads'; data: DownloadTask[] } | { type: 'settings'; data: Settings } | { type: 'library'; data: null } | { type: 'notice'; data: string } | { type: 'spectrum'; data: SpectrumFrame } | { type: 'mediaImport'; data: MediaImportState } | { type: 'mini'; data: MiniState }
 export interface DesktopAPI {
   invoke<K extends Command>(command: K, args?: CommandMap[K]['args']): Promise<Result<CommandMap[K]['result']>>
   onEvent(listener: (event: AppEvent) => void): () => void

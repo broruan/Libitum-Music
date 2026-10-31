@@ -1,9 +1,9 @@
 import type { AppError } from './types'
 export class MusicError extends Error {
-  constructor(public code: string, message: string) { super(message); this.name = 'MusicError' }
+  constructor(public code: string, message: string, public upstreamCode?: number) { super(message); this.name = 'MusicError' }
 }
 export function publicError(error: unknown): AppError {
-  if (error instanceof MusicError) return { code: error.code, message: error.message }
+  if (error instanceof MusicError) return { code: error.code, message: error.message, ...(Number.isFinite(error.upstreamCode) ? { upstreamCode: error.upstreamCode } : {}) }
   const code = (error as NodeJS.ErrnoException)?.code
   if (code === 'ENOSPC') return { code, message: '磁盘空间不足，请释放空间后重试。' }
   if (code === 'EACCES' || code === 'EPERM') return { code, message: '没有访问权限，请检查目录或系统权限。' }
