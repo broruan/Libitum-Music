@@ -97,6 +97,8 @@ Filter 2: ON LSC Fc 105 Hz Gain 2 dB Q 0.71
 
 在播放详情或“设置 → 外观与播放页”开启真实频谱，可选择单色、渐变及颜色。需要 PulseAudio 或 PipeWire 的 PulseAudio 兼容服务，以及 `pulseaudio-utils`。只监听本应用的 mpv 播放流，不录制麦克风、不采集整机混音、不保存 PCM。ALSA 直通或无法定位本应用播放流时显示不可用原因，音乐继续播放。
 
+原生 PipeWire 输出还需要 `pw-dump`（Ubuntu 的 `pipewire-bin`），用于确认播放节点属于本应用。工具已安装但旧候选构建仍提示无法监听时，可先在“播放与输出 → 显示高级音频后端”选择同一设备的 PulseAudio 路径，重新开启频谱；更新修正版后可继续使用原生 PipeWire。相同版本候选包替换安装时使用 `sudo apt install --reinstall ./libitum-music-0.2.0-amd64.deb`。
+
 壁纸支持 JPEG、PNG、WebP、GIF、BMP、AVIF 和 MP4、WebM、MOV、MKV、AVI。视频导入需要 FFmpeg，会转换为不高于 1080p / 30fps 的静音 MP4，可取消，失败保留原背景。图片最大 64 MB，视频最大 4 GB。
 
 可选择仅播放详情或整个应用使用壁纸，调整亮度、遮罩、模糊，并开启播放时旋转封面。视频始终静音循环，页面隐藏时暂停；封面旋转随音乐暂停。

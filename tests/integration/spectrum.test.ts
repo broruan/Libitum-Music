@@ -7,23 +7,36 @@ import { expect,it } from 'vitest'
 import { Mpv } from '../../src/main/mpv'
 import { SpectrumService } from '../../src/main/spectrum'
 import type { SpectrumFrame } from '../../src/shared/types'
+import { parsePipeWireDump } from '../../src/main/spectrum-stream'
 const exec=promisify(execFile)
 function wav(frequency:number){
   const rate=48000,buffer=Buffer.alloc(44+rate*2*15);buffer.write('RIFF');buffer.writeUInt32LE(buffer.length-8,4);buffer.write('WAVEfmt ',8);buffer.writeUInt32LE(16,16);buffer.writeUInt16LE(1,20);buffer.writeUInt16LE(1,22);buffer.writeUInt32LE(rate,24);buffer.writeUInt32LE(rate*2,28);buffer.writeUInt16LE(2,32);buffer.writeUInt16LE(16,34);buffer.write('data',36);buffer.writeUInt32LE(buffer.length-44,40)
   for(let i=0;i<rate*15;i++)buffer.writeInt16LE(Math.round(0.3*32767*Math.sin(i*2*Math.PI*frequency/rate)),44+i*2)
   return buffer
 }
-it('reads only its own playback stream, excluding a second app in the same virtual sink',async()=>{
+it.each(['pulse','pipewire'])('reads only its own %s stream, excluding a second app in the same virtual sink',async backend=>{
   const directory=await mkdtemp(join(tmpdir(),'libitum-spectrum-')),name=`libitum_test_${process.pid}`
   const first=new Mpv(join(directory,'one'),()=> 'mpv'),second=new Mpv(join(directory,'two'),()=> 'mpv')
   let module='',frame:SpectrumFrame={status:'idle',bins:[]}
   const spectrum=new SpectrumService(value=>{frame=value},resolve('out/main/spectrum-worker.js'))
   try{
     const result=await exec('pactl',['load-module','module-null-sink',`sink_name=${name}`,'sink_properties=device.description=Libitum-test\ priority.session=-1000']);module=result.stdout.trim()
+    let firstDevice=`pulse/${name}`
     for(const [mpv,frequency,label] of [[first,1000,'one'],[second,4000,'two']] as const){
-      const path=join(directory,`${label}.wav`);await writeFile(path,wav(frequency));await mpv.start();await mpv.command(['set_property','audio-device',`pulse/${name}`]);await mpv.command(['loadfile',path,'replace'])
+      const path=join(directory,`${label}.wav`);await writeFile(path,wav(frequency));await mpv.start()
+      if(label==='one' && backend==='pipewire') {
+        const {stdout}=await exec('pw-dump',[])
+        const sink=parsePipeWireDump(stdout).find((o:any)=>o.info?.props?.['node.name']===name && o.info?.props?.['media.class']==='Audio/Sink')
+        expect(sink).toBeTruthy()
+        firstDevice=`pipewire/${name}`
+        await expect.poll(async()=>{
+          const devices=await mpv.command(['get_property','audio-device-list'])
+          return devices.some((d:any)=>d.name===firstDevice)
+        }).toBe(true)
+      }
+      await mpv.command(['set_property','audio-device',label==='one'?firstDevice:`pulse/${name}`]);await mpv.command(['loadfile',path,'replace'])
     }
-    spectrum.update(true,first.pid,`pulse/${name}`,'test-tone')
+    spectrum.update(true,first.pid,firstDevice,'test-tone')
     await expect.poll(()=>frame.status,{timeout:10000}).toBe('active')
     const band=(hz:number)=>Math.floor(Math.log(hz/20)/Math.log(1000)*64)
     const nearby=(hz:number)=>Math.max(...frame.bins.slice(band(hz)-1,band(hz)+2))
