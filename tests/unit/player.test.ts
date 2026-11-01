@@ -5,7 +5,7 @@ import { defaultPeq } from '../../src/shared/peq'
 import { Player } from '../../src/main/player'
 import { normalizeTrack } from '../../src/main/normalize'
 import type { Mpv } from '../../src/main/mpv'
-import type { Settings } from '../../src/shared/types'
+import type { Settings, Track } from '../../src/shared/types'
 class FakeMpv extends EventEmitter {
   running = true
   path = ''
@@ -79,6 +79,74 @@ describe('player state transitions', () => {
     const pending = player.radio({ mode: 'EXPLORE' })
     await player.stop(); finish([track(1)]); await pending
     expect(player.state.queue).toHaveLength(0); expect(player.state.radio).toBeNull()
+  })
+  it('clears account state immediately and discards a pending resolution after reset', async () => {
+    let finishStream!: (value: unknown) => void, finishStop!: () => void
+    const backend = { call: vi.fn(() => new Promise(resolve => { finishStream = resolve })) }
+    const mpv = new FakeMpv(), original = mpv.command.bind(mpv)
+    mpv.command = async command => command[0] === 'stop' ? new Promise<void>(resolve => { finishStop = resolve }) : original(command)
+    const player = new Player(mpv as unknown as Mpv, backend as any, settings, () => {}, () => {}, () => {})
+    const pending = player.play([track(1)]); await flush()
+    const reset = player.reset()
+    expect(player.snapshot()).toMatchObject({ queue: [], index: -1, status: 'idle', position: 0, duration: 0, actualQuality: '', bitrate: 0, trial: false, notice: null })
+    finishStream({ url: 'https://example.com/old', quality: 'exhigh' }); await pending
+    expect(mpv.commands.some(command => command[0] === 'loadfile')).toBe(false)
+    mpv.emit('event', { event: 'property-change', name: 'duration', data: 600 }); await flush()
+    expect(player.state.duration).toBe(0)
+    finishStop(); await reset
+  })
+  it('rejects mixed platform queues and does not restore them from disk', async () => {
+    const qq: Track = { ...track(1), provider: 'qq' }
+    const player = new Player(new FakeMpv() as unknown as Mpv, { call: async () => ({}) } as any, settings, () => {}, () => {}, () => {})
+    player.restore({ queue: [track(1), qq], index: 0, position: 12, repeat: 'list' })
+    expect(player.state.queue).toEqual([]); expect(player.state.status).toBe('idle')
+    await expect(player.play([track(1), qq])).rejects.toMatchObject({ code: 'PLATFORM_MISMATCH' })
+    player.restore({ queue: [track(1)], index: 0, position: 12, repeat: 'list' })
+    await expect(player.play([qq], 0, true)).rejects.toMatchObject({ code: 'PLATFORM_MISMATCH' })
+    expect(player.state.queue).toHaveLength(1); expect(player.state.queue[0].provider).toBe('netease')
+  })
+  it('routes equal song IDs by platform and ignores the old platform stream after reset', async () => {
+    let finishOld!: (value: unknown) => void
+    const backend = { call: vi.fn((_method: string, args: any) => args.provider === 'netease' ? new Promise(resolve => { finishOld = resolve }) : Promise.resolve({ url: 'https://example.com/qq-1', quality: 'exhigh' })) }
+    const mpv = new FakeMpv(), player = new Player(mpv as unknown as Mpv, backend as any, settings, () => {}, () => {}, () => {})
+    const pending = player.play([track(1)]); await flush(); await player.reset()
+    await player.play([{ ...track(1), provider: 'qq' }])
+    finishOld({ url: 'https://example.com/netease-1', quality: 'exhigh' }); await pending
+    expect(backend.call).toHaveBeenCalledWith('resolve', { id: '1', provider: 'qq', quality: 'exhigh' })
+    expect(mpv.path).toBe('https://example.com/qq-1')
+  })
+  it('never resumes an old file-loaded handler after the account reset', async () => {
+    let finishPath!: (value: string) => void
+    const mpv = new FakeMpv(), original = mpv.command.bind(mpv)
+    const player = new Player(mpv as unknown as Mpv, { call: async () => ({ url: 'https://example.com/old', quality: 'exhigh' }) } as any, settings, () => {}, () => {}, () => {})
+    await player.play([track(1)])
+    mpv.command = async command => command[0] === 'get_property' && command[1] === 'path' ? new Promise<string>(resolve => { finishPath = resolve }) : original(command)
+    mpv.emit('event', { event: 'file-loaded' }); await flush(); await player.reset()
+    finishPath('https://example.com/old'); await flush()
+    expect(mpv.commands).not.toContainEqual(['set_property', 'pause', false]); expect(player.state.status).toBe('idle')
+  })
+  it('scopes listening reports to the track platform before clearing an account queue', async () => {
+    const mpv = new FakeMpv(), backend = { call: vi.fn(async () => ({ url: 'https://example.com/qq', quality: 'exhigh' })) }
+    const player = new Player(mpv as unknown as Mpv, backend as any, settings, () => {}, () => {}, () => {})
+    await player.play([{ ...track(1), provider: 'qq' }]); mpv.emit('event', { event: 'file-loaded' }); await flush()
+    for (let seconds = 1; seconds <= 11; seconds++) mpv.emit('event', { event: 'property-change', name: 'time-pos', data: seconds })
+    await player.reset()
+    expect(backend.call).toHaveBeenCalledWith('scrobble', { id: '1', provider: 'qq', seconds: 11 })
+  })
+  it('does not skip a new platform song when an old dislike request finishes', async () => {
+    let finishDislike!: () => void
+    const backend = { call: vi.fn((method: string, args: any) => {
+      if (method === 'radio') return Promise.resolve([track(1), track(2)])
+      if (method === 'dislike') return new Promise<void>(resolve => { finishDislike = resolve })
+      return Promise.resolve({ url: `https://example.com/${args.provider}-${args.id}`, quality: 'exhigh' })
+    }) }
+    const mpv = new FakeMpv(), player = new Player(mpv as unknown as Mpv, backend as any, settings, () => {}, () => {}, () => {})
+    await player.radio({ mode: 'FM' })
+    const pending = player.dislike(); await flush(); await player.reset()
+    await player.play([{ ...track(1), provider: 'qq' }])
+    finishDislike(); await pending
+    expect(backend.call).toHaveBeenCalledWith('dislike', { id: '1', provider: 'netease' })
+    expect(backend.call.mock.calls.filter(([method, args]) => method === 'resolve' && args.provider === 'qq')).toHaveLength(1)
   })
 })
 

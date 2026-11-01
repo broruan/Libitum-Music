@@ -9,6 +9,16 @@ type ApiResult = { body: Record<string, any>; cookie?: string[]; status?: number
 export type ApiModule = Record<string, (params: Record<string, unknown>) => Promise<ApiResult>>
 export interface ProviderOptions extends RequestPolicyOptions { clientCookie?: string; beforeRequest?: (name: string) => Promise<void>; onCredentials?: (cookie: string, user: User) => void }
 export interface MusicProvider {
+  setSession(cookie: string, user: User | null): void
+  validateSession(cookie: string): Promise<{ user: User; cookie: string }>
+  qrStart(): Promise<{ key: string; dataUrl: string }>
+  qrCheck(key: string): Promise<{ state: 'waiting' | 'confirm' | 'expired' } | { state: 'success'; cookie: string; user: User }>
+  qrCancel(key: string): void
+  lyrics(id: string): Promise<Lyrics>
+  like(id: string, like: boolean): Promise<void>
+  dislike(id: string): Promise<void>
+  scrobble(id: string, seconds: number): Promise<void>
+  diagnostics(): Diagnostic[]
   search(keywords: string, kind: SearchKind, offset: number): Promise<SearchResult>
   detail(kind: CollectionKind, id: string, offset: number): Promise<Detail>
   allTracks(kind: CollectionKind, id: string): Promise<Track[]>

@@ -41,7 +41,7 @@ test('homepage renders and renderer cannot access Node or arbitrary IPC', async 
   await page.screenshot({ path: 'test-results/home.png', animations: 'disabled' })
 })
 test('QR login displays and invalid Cookie has an actionable error', async () => {
-  await page.getByRole('button', { name: '登录网易云音乐 同步你的专属音乐库' }).click()
+  await page.getByRole('button', { name: '登录音乐账号 同步你的专属音乐库' }).click()
   await expect(page.getByAltText('网易云登录二维码')).toBeVisible()
   await page.getByRole('button', { name: 'Cookie 导入' }).click()
   await page.getByLabel('登录 Cookie').fill('MUSIC_U=invalid')
@@ -117,7 +117,7 @@ test('recommendation radio starts and settings persist theme', async () => {
 test('logout removes account data and does not persist plaintext cookies', async () => {
   await page.getByRole('button', { name: '账号与隐私', exact: true }).click()
   await page.getByRole('button', { name: '退出登录', exact: true }).click()
-  await expect(page.getByText('尚未登录', { exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '让生活，有声有色。', exact: true })).toBeVisible()
   const saved = JSON.parse(await readFile(join(directory, 'session.json'), 'utf8'))
   expect(saved.data).toBeNull()
   for (const file of ['settings.json', 'queue.json', 'downloads.json', 'session.json']) {

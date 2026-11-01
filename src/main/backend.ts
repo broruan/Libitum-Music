@@ -9,7 +9,7 @@ export class WorkerBackend extends EventEmitter {
   private pending = new Map<number, { resolve: (value: any) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }>()
   private closing = false
   start(runtime: string) {
-    this.child = utilityProcess.fork(join(__dirname, 'worker.js'), [], { serviceName: 'Libitum music · 网易云服务', env: { ...process.env, TMPDIR: runtime }, stdio: 'ignore' })
+    this.child = utilityProcess.fork(join(__dirname, 'worker.js'), [], { serviceName: 'Libitum music · 音乐服务', env: { ...process.env, TMPDIR: runtime }, stdio: 'ignore' })
     this.child.on('message', message => {
       if (message.event) { this.emit(message.event, message.data); return }
       const pending = this.pending.get(message.id)

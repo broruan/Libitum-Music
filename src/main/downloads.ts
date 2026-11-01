@@ -31,23 +31,38 @@ export class Downloads {
   private directory = ''
   private lastUpdate = 0
   private saving: ReturnType<typeof setTimeout> | null = null
-  constructor(private store: JsonStore<DownloadTask[]>, private resolve: (id: string, quality: Quality) => Promise<Stream>, private emit: (tasks: DownloadTask[]) => void, private report: (message: string) => void) {}
+  private closing = false
+  constructor(private store: JsonStore<DownloadTask[]>, private resolve: (track: Track, quality: Quality) => Promise<Stream>, private emit: (tasks: DownloadTask[]) => void, private report: (message: string) => void) {}
   async init(directory: string) {
     this.directory = directory
     const saved = await this.store.read()
-    this.tasks = Array.isArray(saved) ? saved.map(task => ['queued', 'resolving', 'downloading'].includes(task.status) ? { ...task, status: 'interrupted', error: '上次下载被中断，点击重试重新下载。' } : task) : []
+    this.tasks = Array.isArray(saved) ? saved.map(task => {
+      const ownerId = task.ownerId && !task.ownerId.includes(':') ? `${task.track.provider || 'netease'}:${task.ownerId}` : task.ownerId
+      return ['queued', 'resolving', 'downloading'].includes(task.status) ? { ...task, ownerId, status: 'interrupted', error: '上次下载被中断，点击重试重新下载。' } : { ...task, ownerId }
+    }) : []
   }
   configure(directory: string) { this.directory = directory }
-  setOwner(id: string) { this.ownerId = id; this.publish(); this.pump() }
+  setOwner(id: string) {
+    const next = id && !id.includes(':') ? `netease:${id}` : id
+    if (next !== this.ownerId) {
+      for (const task of this.tasks.filter(task => task.ownerId === this.ownerId && ['queued', 'resolving', 'downloading'].includes(task.status))) {
+        task.status = 'interrupted'; task.error = '账号已切换，下载已中断；返回原账号后可重试。'
+        this.active.get(task.id)?.abort(new MusicError('SESSION_CHANGED', task.error)); this.active.delete(task.id)
+      }
+      this.ownerId = next
+    }
+    this.publish(); this.pump()
+  }
   list() { return structuredClone(this.tasks.filter(task => task.ownerId === this.ownerId)) }
   private publish(persist = true) {
     this.emit(this.list())
-    if (persist && !this.saving) this.saving = setTimeout(() => { this.saving = null; void this.store.write(this.tasks).catch(() => this.report('下载记录保存失败，请检查磁盘空间。')) }, 250)
+    if (persist && !this.saving && !this.closing) this.saving = setTimeout(() => { this.saving = null; void this.store.write(this.tasks).catch(() => this.report('下载记录保存失败，请检查磁盘空间。')) }, 250)
   }
   add(tracks: Track[], quality: Quality) {
     if (!this.ownerId) throw new MusicError('AUTH_REQUIRED', '请先登录后下载。')
+    if (tracks.some(track => !this.ownerId.startsWith(`${track.provider}:`))) throw new MusicError('PLATFORM_MISMATCH', '歌曲不属于当前登录的音乐平台，请重新打开歌单。')
     for (const track of tracks) {
-      if (this.tasks.some(task => task.ownerId === this.ownerId && task.track.id === track.id && task.quality === quality && ['queued', 'resolving', 'downloading', 'completed'].includes(task.status))) continue
+      if (this.tasks.some(task => task.ownerId === this.ownerId && task.track.provider === track.provider && task.track.id === track.id && task.quality === quality && ['queued', 'resolving', 'downloading', 'completed'].includes(task.status))) continue
       this.tasks.push({ id: randomUUID(), ownerId: this.ownerId, track, quality, status: 'queued', received: 0, total: 0, createdAt: Date.now() })
     }
     this.publish(); this.pump()
@@ -67,39 +82,41 @@ export class Downloads {
   }
   async clearOwner() {
     const owner = this.ownerId
-    this.ownerId = ''
-    for (const task of this.tasks.filter(task => task.ownerId === owner)) this.active.get(task.id)?.abort()
+    this.setOwner('')
     this.tasks = this.tasks.filter(task => task.ownerId !== owner)
     this.publish(); await this.store.write(this.tasks)
   }
   private pump() {
-    if (!this.ownerId) return
+    if (!this.ownerId || this.closing) return
     for (const task of this.tasks) {
       if (this.active.size >= 2) break
       if (task.ownerId !== this.ownerId || task.status !== 'queued') continue
       const controller = new AbortController()
       this.active.set(task.id, controller); task.status = 'resolving'
-      void this.run(task, controller).finally(() => { this.active.delete(task.id); this.publish(); this.pump() })
+      void this.run(task, controller).finally(() => { if (this.active.get(task.id) === controller) this.active.delete(task.id); this.publish(); this.pump() })
     }
   }
+  private current(task: DownloadTask, controller: AbortController) { return !controller.signal.aborted && task.ownerId === this.ownerId && this.active.get(task.id) === controller && this.tasks.includes(task) }
   private async run(task: DownloadTask, controller: AbortController) {
     let temporary = ''
     const directory = this.directory
     let watchdog: ReturnType<typeof setTimeout> | undefined
     const touch = () => { if (watchdog) clearTimeout(watchdog); watchdog = setTimeout(() => controller.abort(new MusicError('NETWORK', '下载超时，请检查网络后重试。')), 30000) }
     try {
-      const stream = await this.resolve(task.track.id, task.quality)
-      if (controller.signal.aborted || task.ownerId !== this.ownerId) return
+      const stream = await this.resolve(task.track, task.quality)
+      if (!this.current(task, controller)) return
       checkDownloadQuality(stream, task.quality)
       task.actualQuality = stream.quality || task.quality
       await mkdir(directory, { recursive: true })
+      if (!this.current(task, controller)) return
       touch()
       const response = await fetch(stream.url, { signal: controller.signal, redirect: 'follow', headers: { 'User-Agent': 'CloudMusicPlayer/0.1.0' } })
+      if (!this.current(task, controller)) { await response.body?.cancel(); return }
       if (!response.ok || !response.body) throw new MusicError('DOWNLOAD_HTTP', response.status === 403 ? '下载链接已过期或账号无下载权限，请重试。' : '下载请求失败，请稍后重试。')
       const contentType = response.headers.get('content-type') || ''
       if (/text\/|json|html/.test(contentType)) throw new MusicError('DOWNLOAD_FORMAT', '服务未返回音频文件，请稍后重试。')
       const extension = audioExtension(stream.format, contentType)
-      const base = safeFilename(`${task.track.artists.map(artist => artist.name).join(' & ')} - ${task.track.title}`) + ` [${task.track.id}-${task.quality}]`
+      const base = safeFilename(`${task.track.artists.map(artist => artist.name).join(' & ')} - ${task.track.title}`) + ` [${task.track.provider}-${task.track.id}-${task.quality}]`
       temporary = join(directory, `.${task.id}.part`)
       task.total = Number(response.headers.get('content-length')) || stream.size
       task.received = 0; task.status = 'downloading'; this.publish()
@@ -110,15 +127,16 @@ export class Downloads {
       } })
       await pipeline(Readable.fromWeb(response.body as any), progress, createWriteStream(temporary, { flags: 'wx', mode: 0o644 }), { signal: controller.signal })
       if (!task.received || (task.total > 0 && task.received !== task.total)) throw new MusicError('DOWNLOAD_INCOMPLETE', '文件下载不完整，请重新下载。')
-      if (controller.signal.aborted || task.ownerId !== this.ownerId) return
+      if (!this.current(task, controller)) return
       let target = ''
       for (let index = 0; index < 1000; index++) {
         target = join(directory, `${base}${index ? ` (${index})` : ''}.${extension}`)
         try { await link(temporary, target); break } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST' || index === 999) throw error }
       }
+      if (!this.current(task, controller)) { await rm(target, { force: true }); return }
       task.path = target; task.total = task.received; task.status = 'completed'; task.error = undefined
     } catch (error) {
-      if (task.status !== 'cancelled') {
+      if (!['cancelled', 'interrupted'].includes(task.status)) {
         task.status = 'failed'
         task.error = controller.signal.aborted ? (controller.signal.reason instanceof MusicError ? controller.signal.reason.message : '下载已中断，请重试。') : publicError(error).message
       }
@@ -128,8 +146,10 @@ export class Downloads {
     }
   }
   async close() {
+    this.closing = true
+    for (const task of this.tasks) if (['resolving', 'downloading', 'queued'].includes(task.status)) task.status = 'interrupted'
     for (const controller of this.active.values()) controller.abort()
-    if (this.saving) clearTimeout(this.saving)
-    await this.store.write(this.tasks.map(task => ['resolving', 'downloading', 'queued'].includes(task.status) ? { ...task, status: 'interrupted' as const } : task))
+    if (this.saving) clearTimeout(this.saving); this.saving = null
+    await this.store.write(this.tasks)
   }
 }
