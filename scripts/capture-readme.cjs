@@ -36,6 +36,7 @@ async function launch(directory, fixture, audioUrl) {
 }
 
 async function shot(page, name) {
+  if (process.argv.includes('--mini-only') && name !== 'mini-player.png') return
   await page.evaluate(() => document.fonts.ready)
   await page.mouse.move(0, 0)
   await page.screenshot({ path: path.join(images, name), animations: 'disabled' })
@@ -109,7 +110,6 @@ async function main() {
     await expect.poll(() => instance.windows().length).toBe(2)
     const card = instance.windows().find(window => window !== page)
     await expect(card.locator('.mini-player')).toBeVisible()
-    await instance.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find(window => window.webContents.getURL().endsWith('#mini')).setSize(440, 208))
     await shot(card, 'mini-player.png')
   } finally {
     if (instance) await instance.close()

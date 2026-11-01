@@ -47,10 +47,10 @@ let clearing: Promise<void> | null = null
 let authEpoch = 0
 const send = (event: AppEvent) => {
   if (window && !window.isDestroyed()) window.webContents.send('music:event', event)
-  if (miniWindow && !miniWindow.isDestroyed() && ['player','library','session'].includes(event.type)) {
+  if (miniWindow && !miniWindow.isDestroyed() && ['player','library','session','settings'].includes(event.type)) {
     miniWindow.webContents.send('music:event', { type:'mini', data:miniSnapshot() } satisfies AppEvent)
     const id=player?.state.queue[player.state.index]?.id || ''
-    if (event.type !== 'player' || id!==miniTrack) { miniTrack=id; void refreshMiniLike() }
+    if (['library','session'].includes(event.type) || id!==miniTrack) { miniTrack=id; void refreshMiniLike() }
   }
   if (event.type === 'player' || event.type === 'settings') syncSpectrum()
 }
@@ -60,7 +60,10 @@ function syncSpectrum() {
 }
 function miniSnapshot(): MiniState {
   const state=player?.state, track=state?.queue[state.index] || null
-  return { track, status:state?.status || 'idle',position:state?.position || 0,duration:state?.duration || 0,volume:state?.volume || 0,liked:!!track && miniLikes.has(track.id) }
+  // Only visual preferences reach the card: never account data, directories or wallpaper names.
+  const {theme,autoWallpaperText,backgroundColor,fontColor,fontFamily,visualMode,wallpaper,wallpaperBrightness,wallpaperOverlay,wallpaperBlur,panelBlur,panelOpacity,floatingOpacity}=settings
+  const appearance={theme,autoWallpaperText,backgroundColor,fontColor,fontFamily,visualMode,wallpaper:wallpaper?{id:wallpaper.id,kind:wallpaper.kind,name:''}:null,wallpaperBrightness,wallpaperOverlay,wallpaperBlur,panelBlur,panelOpacity,floatingOpacity}
+  return { appearance, track, status:state?.status || 'idle',position:state?.position || 0,duration:state?.duration || 0,volume:state?.volume || 0,liked:!!track && miniLikes.has(track.id) }
 }
 async function refreshMiniLike() {
   const epoch=authEpoch
@@ -311,10 +314,10 @@ function createMini() {
   let bounds=nativeWayland ? undefined : settings.floatingBounds
   if(bounds){
     const displays=screen.getAllDisplays(),area=(displays.find(d=>bounds!.x+50<d.workArea.x+d.workArea.width && bounds!.x+bounds!.width-50>d.workArea.x && bounds!.y+40<d.workArea.y+d.workArea.height && bounds!.y+bounds!.height-40>d.workArea.y)||screen.getPrimaryDisplay()).workArea
-    const width=Math.min(bounds.width,area.width),height=Math.min(bounds.height,area.height)
+    const width=280,height=64
     bounds={width,height,x:Math.max(area.x,Math.min(bounds.x,area.x+area.width-width)),y:Math.max(area.y,Math.min(bounds.y,area.y+area.height-height))}
   }
-  const card=new BrowserWindow({icon:join(app.getAppPath(),'resources/icon.png'), width:380,height:180,minWidth:320,minHeight:160,...bounds,frame:false,resizable:true,show:false,alwaysOnTop:true,title:'Libitum music · 悬浮卡片',autoHideMenuBar:true,backgroundColor:'#191b24',webPreferences:{preload:join(__dirname,'../preload/index.js'),contextIsolation:true,nodeIntegration:false,sandbox:true,webSecurity:true} })
+  const card=new BrowserWindow({icon:join(app.getAppPath(),'resources/icon.png'), width:280,height:64,minWidth:280,minHeight:64,maxWidth:280,maxHeight:64,...bounds,frame:false,resizable:false,transparent:true,show:false,alwaysOnTop:true,title:'Libitum music · 悬浮卡片',autoHideMenuBar:true,backgroundColor:'#00000000',webPreferences:{preload:join(__dirname,'../preload/index.js'),contextIsolation:true,nodeIntegration:false,sandbox:true,webSecurity:true} })
   miniWindow=card
   card.webContents.setWindowOpenHandler(()=>({action:'deny'})); card.webContents.on('will-navigate',event=>event.preventDefault())
   card.once('ready-to-show',()=>{ if(miniWindow===card) card.show() })

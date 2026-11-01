@@ -26,6 +26,19 @@ describe('experience settings and audio processing',()=>{
     const value=normalizeExperience({wallpaper:{id:'../../session.json',kind:'image',name:'x'},peq:{enabled:true},spectrum:{enabled:true,color:'url(file://private)'}})
     expect(value.autoWallpaperText).toBe(false);expect(value.fontFamily).toBe('');expect(value.backgroundColor).toBe('');expect(value.panelBlur).toBe(12);expect(value.panelOpacity).toBe(.96);expect(normalizeExperience({panelOpacity:2}).panelOpacity).toBe(1);expect(normalizeExperience({panelOpacity:NaN}).panelOpacity).toBe(.96);expect(normalizeExperience({panelBlur:45,wallpaperBlur:23}).panelBlur).toBe(30);expect(normalizeExperience({panelBlur:7,wallpaperBlur:23}).wallpaperBlur).toBe(23);expect(value.commentsEnabled).toBe(true);expect(value.floatingEnabled).toBe(false);expect(value.wallpaper).toBeNull();expect(value.peq.enabled).toBe(false);expect(value.spectrum.enabled).toBe(false)
   })
+  it('migrates compact card settings without changing main opacity or old window position',()=>{
+    expect(normalizeExperience({panelOpacity:.3}).floatingOpacity).toBe(.96)
+    const old={x:100,y:150,width:380,height:180}
+    expect(normalizeExperience({floatingBounds:old}).floatingBounds).toEqual(old)
+    expect(normalizeExperience({floatingBounds:{...old,width:280,height:64}}).floatingBounds).toEqual({...old,width:280,height:64})
+    for(const floatingOpacity of [0,.35,1]){
+      expect(normalizeExperience({floatingOpacity,panelOpacity:.7}).floatingOpacity).toBe(floatingOpacity)
+      expect(()=>validateCommand('settings.update',{floatingOpacity})).not.toThrow()
+    }
+    for(const floatingOpacity of [-1,1.1,NaN,Infinity,'0.5'])expect(()=>validateCommand('settings.update',{floatingOpacity})).toThrow()
+    expect(normalizeExperience({floatingOpacity:NaN}).floatingOpacity).toBe(.96)
+    expect(normalizeExperience({floatingOpacity:-1}).floatingOpacity).toBe(0)
+  })
   it('groups backend variants without merging distinct outputs by display name',()=>{
     const devices=groupDevices([{name:'auto',description:'Default'},{name:'pipewire',description:'Default (pipewire)'},{name:'pipewire/a',description:'Speaker'},{name:'pipewire/b',description:'Speaker'},{name:'pulse/a',description:'Speaker'},{name:'alsa/hw:0',description:'Speaker'}])
     expect(devices.filter(d=>!d.advanced).map(d=>d.id)).toEqual(['auto','pipewire/a','pipewire/b'])

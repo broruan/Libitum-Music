@@ -1,5 +1,5 @@
 import {createContext,useLayoutEffect,useState,type CSSProperties} from 'react'
-import type {Settings} from '../../shared/types'
+import type {AppearanceSettings} from '../../shared/types'
 import {contrast,minimumContrast,mix,paletteForSamples,parseColor,type Rgb,type WallpaperPalette} from '../../shared/wallpaper-palette'
 import type {VisualPreview} from './state'
 
@@ -8,7 +8,7 @@ function readTheme(){
   const css=getComputedStyle(document.documentElement),get=(key:string)=>css.getPropertyValue(key).trim()
   return {text:get('--text'),secondary:get('--secondary'),muted:get('--muted'),bg:get('--bg'),panel:get('--panel-rgb').split(/\s+/).map(Number) as Rgb}
 }
-export function useAppearance(s:Settings,preview:VisualPreview,palette:WallpaperPalette,wallpaperActive:boolean){
+export function useAppearance(s:AppearanceSettings,preview:VisualPreview,palette:WallpaperPalette,wallpaperActive:boolean){
   const [theme,setTheme]=useState(readTheme)
   useLayoutEffect(()=>{
     const update=()=>{document.documentElement.dataset.theme=s.theme;setTheme(readTheme())}

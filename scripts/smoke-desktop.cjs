@@ -11,7 +11,8 @@ async function check(mode){
     const enabled=await main.evaluate(()=>window.music.invoke('settings.update',{floatingEnabled:true}));if(!enabled.ok)throw new Error('Mini card did not enable')
     const card=await opening;await card.waitForSelector('.mini-player')
     const denied=await card.evaluate(()=>window.music.invoke('auth.qrStart'));if(denied.ok)throw new Error('Mini IPC capability leak')
-    const info=await instance.evaluate(({BrowserWindow})=>({windows:BrowserWindow.getAllWindows().length,alwaysOnTop:BrowserWindow.getAllWindows().find(w=>w.webContents.getURL().includes('#mini')).isAlwaysOnTop()}))
+    const info=await instance.evaluate(({BrowserWindow})=>{const card=BrowserWindow.getAllWindows().find(w=>w.webContents.getURL().includes('#mini'));return {windows:BrowserWindow.getAllWindows().length,alwaysOnTop:card.isAlwaysOnTop(),size:card.getSize(),resizable:card.isResizable()}})
+    if(info.size[0]!==280||info.size[1]!==64||info.resizable)throw new Error('Compact card size mismatch')
     await main.evaluate(()=>window.music.invoke('settings.update',{floatingEnabled:false}))
     console.log(JSON.stringify({mode,...info,restrictedIPC:true,profile:'isolated-fixture',audio:'null'}))
   }finally{if(instance)await instance.close();await fs.rm(directory,{recursive:true,force:true})}

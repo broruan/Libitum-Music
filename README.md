@@ -4,13 +4,13 @@
   <p><strong>让生活，有声有色。</strong></p>
   <p>一个简洁的 Linux 音乐空间。发现喜欢的旋律，也让每一次聆听更合心意。</p>
   <p>
-    <a href="https://github.com/kuranshi/Libitum-Music/releases/tag/v0.2.0-rc.2"><img src="https://img.shields.io/badge/preview-v0.2.0--rc.2-ea708b" alt="预发布 v0.2.0-rc.2"></a>
+    <a href="https://github.com/kuranshi/Libitum-Music/releases/tag/v0.2.0-rc.3"><img src="https://img.shields.io/badge/preview-v0.2.0--rc.3-ea708b" alt="预发布 v0.2.0-rc.3"></a>
     <a href="#下载与安装"><img src="https://img.shields.io/badge/Ubuntu-22.04%20%7C%2024.04-E95420?logo=ubuntu&amp;logoColor=white" alt="Ubuntu 22.04 / 24.04"></a>
     <a href="#兼容范围"><img src="https://img.shields.io/badge/architecture-x86__64-64748b" alt="x86_64"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-5885d1" alt="MIT 许可证"></a>
   </p>
   <p>
-    <a href="https://github.com/kuranshi/Libitum-Music/releases/tag/v0.2.0-rc.2"><strong>下载客户端</strong></a> ·
+    <a href="https://github.com/kuranshi/Libitum-Music/releases/tag/v0.2.0-rc.3"><strong>下载客户端</strong></a> ·
     <a href="#界面预览">界面预览</a> ·
     <a href="docs/user-guide.md">使用指南</a> ·
     <a href="#从源码运行">从源码运行</a> ·
@@ -22,14 +22,14 @@
 
 Libitum music 是面向 Linux 的中文网易云音乐桌面客户端，使用 **Electron · React · TypeScript · mpv**。从每日推荐到同步歌词，从十段 PEQ 到独立悬浮卡片，把发现、播放和管理音乐放在同一个桌面应用里，无需自行部署公共音乐代理。
 
-> **当前为预发布候选版 `v0.2.0-rc.2`**，应用与安装包内部版本为 `0.2.0`。真实账号的完整收藏、取消收藏、官方同步与重启一致性验收仍待补齐，详见[验证记录](VALIDATION.md)。
+> **当前为预发布候选版 `v0.2.0-rc.3`**，应用与安装包内部版本为 `0.2.0`。欢迎体验并反馈问题。账号同步与硬件兼容性仍在持续验证，已完成的检查和适用范围见[验证记录](VALIDATION.md)。
 
 ## 为日常聆听准备
 
 | | 可以做什么 |
 | --- | --- |
 | **发现下一首喜欢** | 每日推荐、精选歌单、排行榜与新专辑；私人 FM，以及熟悉、探索和场景模式的音乐漫游。 |
-| **整理自己的音乐库** | 搜索歌曲、歌单、专辑与歌手；查看歌手热门歌曲和分页专辑，喜欢歌曲、收藏专辑与歌单、加入本人可编辑歌单。 |
+| **整理自己的音乐库** | 搜索歌曲、歌单、专辑与歌手；查看歌手热门歌曲和分页专辑，喜欢歌曲、收藏专辑与歌单、加入自己可编辑的歌单。 |
 | **沉浸地听一首歌** | 大封面、逐行同步歌词、译文、点击歌词跳转；按需展开的独立评论面板，以及真实播放流频谱。 |
 | **调整声音的细节** | mpv 播放、多档音质与输出设备切换；十段参数均衡器、前级、单段旁路及 APO / AutoEQ 预设导入。 |
 | **布置自己的音乐空间** | 浅色、深色或跟随系统；图片与静音视频壁纸、双模糊、面板透明度、自定义配色和系统字体。 |
@@ -53,17 +53,17 @@ Libitum music 是面向 Linux 的中文网易云音乐桌面客户端，使用 *
 
 ### 小小卡片，留住正在听的音乐
 
-主窗口隐藏后，仍可在悬浮卡片中切歌、暂停、喜欢、调节音量与进度，也能随时返回主窗口。
+悬浮卡片现为 `280×64`，面积约为旧版的四分之一；主题、字体和壁纸跟随主界面，背景透明度可在“设置 → 悬浮卡片”独立调节。主窗口隐藏后仍可切歌、暂停、喜欢、调节音量与进度，或随时返回主窗口。
 
 <p align="center">
-  <img src="docs/images/mini-player.png" width="440" alt="Libitum music 独立悬浮播放卡片">
+  <img src="docs/images/mini-player.png" width="280" alt="Libitum music 独立悬浮播放卡片">
 </p>
 
 <sub>以上均为本项目实际运行截图。首页使用未登录的公开推荐；播放详情、PEQ 与卡片使用隔离的合成示例曲目，不包含私人账号或音乐文件。截图来源与复现方式见<a href="docs/screenshots.md">截图说明</a>。</sub>
 
 ## 下载与安装
 
-在 [v0.2.0-rc.2 下载页](https://github.com/kuranshi/Libitum-Music/releases/tag/v0.2.0-rc.2)展开 **Assets**，选择安装包。`Source code.zip` 是源码。
+在 [v0.2.0-rc.3 下载页](https://github.com/kuranshi/Libitum-Music/releases/tag/v0.2.0-rc.3)展开 **Assets**，选择安装包。`Source code.zip` 是源码。
 
 | 格式 | 文件 | 适用场景 |
 | --- | --- | --- |

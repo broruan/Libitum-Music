@@ -40,3 +40,16 @@ export function AppearanceControls(){
   const save=async()=>{setBusy(true);await act(request('settings.update',{backgroundColor:background,fontColor:color,fontFamily:font,...(manual.current||color!==s.fontColor?{autoWallpaperText:false}:{})}),'外观已更新');manual.current=false;setBusy(false)}
   return <section className="custom-appearance"><h3>自定义配色与字体</h3><div className="setting-row"><div><strong>背景颜色</strong><p>无壁纸时使用的底色。</p></div><div className="color-controls"><input aria-label="自定义背景颜色" type="color" value={background||'#f7f8fa'} onChange={e=>setBackground(e.target.value)}/><button className="text-link" onClick={()=>setBackground('')}>跟随主题</button></div></div><div className="setting-row"><div><strong>文字颜色</strong><p>应用后使用手动字色，覆盖设置、播放页和菜单的普通文字。</p></div><div className="color-controls"><input aria-label="自定义文字颜色" type="color" value={color||'#272b36'} onChange={e=>{manual.current=true;setColor(e.target.value)}}/><button className="text-link" onClick={()=>{manual.current=true;setColor('')}}>跟随主题</button></div></div><div className="setting-row"><label htmlFor="appearance-font">界面字体</label><input id="appearance-font" className="input font-choice" list="system-fonts" value={font} maxLength={120} placeholder="系统默认，或填写已安装字体" onChange={e=>setFont(e.target.value)}/><datalist id="system-fonts">{fonts.data?.map(name=><option key={name} value={name}/>)}</datalist></div><div className="editor-actions"><button className="button subtle" onClick={()=>{setBackground('');setColor('');setFont('');manual.current=true}}>重置预览</button><button className="button primary" disabled={busy} onClick={()=>void save()}>应用外观</button></div></section>
 }
+
+// Stored independently from the main window's panel opacity.
+export function FloatingOpacityControl(){
+  const {data,toast}=useApp(),[value,setValue]=useState(data.settings.floatingOpacity),[saving,setSaving]=useState(false),pending=useRef<number|undefined>(undefined),busy=useRef(false),id=useId()
+  useEffect(()=>{if(pending.current===undefined)setValue(data.settings.floatingOpacity)},[data.settings.floatingOpacity])
+  const cancel=()=>{pending.current=undefined;setValue(data.settings.floatingOpacity)}
+  const commit=async()=>{
+    if(pending.current===undefined||busy.current)return
+    const floatingOpacity=pending.current;pending.current=undefined;busy.current=true;setSaving(true)
+    try{await request('settings.update',{floatingOpacity})}catch(error){setValue(data.settings.floatingOpacity);toast((error as Error).message)}finally{busy.current=false;setSaving(false)}
+  }
+  return <div className="setting-row blur-setting"><div><label htmlFor={id}>卡片背景透明度</label><p>独立于主界面，松开滑杆后应用。文字和按钮保持不透明。</p></div><div><input id={id} aria-label="卡片背景透明度" type="range" min="0" max="100" step="1" value={Math.round((1-value)*100)} disabled={saving} onChange={e=>{const next=(100-Number(e.target.value))/100;pending.current=next;setValue(next)}} onPointerDown={e=>e.currentTarget.setPointerCapture(e.pointerId)} onPointerUp={()=>void commit()} onLostPointerCapture={()=>void commit()} onPointerCancel={cancel} onKeyDown={e=>{if(e.key==='Escape')cancel()}} onKeyUp={()=>void commit()} onBlur={()=>void commit()}/><output htmlFor={id}>{Math.round((1-value)*100)}%</output></div></div>
+}
