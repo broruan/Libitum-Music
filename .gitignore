@@ -16,6 +16,13 @@
 !/scripts/
 !/tests/
 !/resources/
+!/docs/
+/docs/*
+!/docs/user-guide.md
+!/docs/development.md
+!/docs/screenshots.md
+!/docs/images/
+/docs/images/*
 /resources/*
 !/resources/icon.png
 
@@ -122,7 +129,7 @@ Visited Links
 Top Sites
 Top Sites-*
 
-# Downloads, personal media, covers/screenshots; only the app icon is public.
+# Downloads, personal media, covers and test screenshots stay private.
 downloads/
 Downloads/
 Libitum music 下载/
@@ -147,5 +154,10 @@ Libitum music 下载/
 *.webp
 *.gif
 !/resources/icon.png
+# Reviewed documentation captures; keep all other images ignored.
+!/docs/images/home.png
+!/docs/images/listening.png
+!/docs/images/equalizer.png
+!/docs/images/mini-player.png
 .DS_Store
 Thumbs.db
