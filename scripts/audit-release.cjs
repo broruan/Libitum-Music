@@ -1,7 +1,7 @@
 // A release gate, not a credential scanner output: never print matched values.
 const fs=require('node:fs'),path=require('node:path'),{execFileSync}=require('node:child_process')
 const root=path.resolve(__dirname,'..')
-const allowed=new Set(['.gitignore','LICENSE','README.md','CHANGELOG.md','VALIDATION.md','THIRD_PARTY_NOTICES.md','package.json','package-lock.json','tsconfig.json','electron.vite.config.ts','playwright.config.ts'])
+const allowed=new Set(['.gitignore','LICENSE','README.md','CHANGELOG.md','VALIDATION.md','THIRD_PARTY_NOTICES.md','package.json','package-lock.json','tsconfig.json','electron.vite.config.ts','playwright.config.ts','docs/user-guide.md','docs/development.md','docs/screenshots.md','docs/images/home.png','docs/images/listening.png','docs/images/equalizer.png','docs/images/mini-player.png'])
 const files=[...new Set(execFileSync('git',['ls-files','--cached','--others','--exclude-standard','-z'],{cwd:root,encoding:'utf8'}).split('\0').filter(Boolean))]
 const privatePath=new RegExp('/'+'home/'+'[^/\\s"\']+|/'+'Users/'+'[^/\\s"\']+')
 const patterns=[/MUSIC_[UA]\s*=\s*[A-Za-z0-9%+/=_-]{40,}/,/(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|AKIA[A-Z0-9]{16})/,/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,privatePath]
