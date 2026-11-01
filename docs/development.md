@@ -48,6 +48,8 @@ npm run preview
 | --- | --- |
 | `src/main/index.ts` | Electron 生命周期、IPC、窗口、会话和服务协调 |
 | `src/main/provider.ts` | 网易云接口调用、账号与内容操作 |
+| `src/main/qqmusic-provider.ts`、`qqmusic-runtime.ts` | QQ 字段转换、扫码、会话与本机 MQTT 连接 |
+| `src/main/platform-router.ts` | 未登录默认网易云、登录候选与活动平台隔离、过期结果丢弃 |
 | `src/main/player.ts`、`mpv.ts` | 播放状态、队列协调与 mpv JSON IPC |
 | `src/main/downloads.ts` | 下载任务及本地文件处理 |
 | `src/main/media.ts` | 壁纸导入、转换与资源访问 |
@@ -58,7 +60,9 @@ npm run preview
 | `tests/` | 单元、集成与 Electron 流程测试 |
 | `scripts/` | 安装包、运行检查与发布审计 |
 
-网易云接口依赖锁定为 `@neteasecloudmusicapienhanced/api@4.41.1`，随应用调用，不需要部署公共音乐代理。项目不启用跨平台替代音源。当前范围不包括音乐云盘、手机号验证码、多账号并行、其他音乐平台及应用内自动更新。
+网易云接口依赖锁定为 `@neteasecloudmusicapienhanced/api@4.41.1`，QQ 音乐锁定为 `@yakult-green-tea/qq-music-api@3.3.5`。QQ 在 worker 内调用公共 `serverless` 处理函数并注入本机 MQTT 连接，不加载会启动 HTTP 服务的包根入口，不需要部署代理。平台字段由各自 provider 转换为现有歌曲、歌单、歌词和播放结构，renderer 和 mpv 继续复用。
+
+默认仅初始化网易云；选择 QQ 登录才创建 QQ runtime，登录候选不会提前切换活动平台。账号提交、取消和恢复沿用现有 safeStorage 流程，旧版未标记平台的数据按网易云迁移。项目不启用跨平台替代音源。当前范围不包括音乐云盘、手机号验证码、多账号并行、网易云／QQ 以外的平台及应用内自动更新。
 
 ## 验证命令
 
@@ -95,6 +99,15 @@ npm run test:desktop
 音频检查使用隔离测试音频和临时虚拟输出，不录制麦克风，结束后清理。它们不等同于物理设备有声试听、拔插设备或各桌面环境的长期验收。项目历史检查结果与未覆盖项集中记录在 [VALIDATION.md](../VALIDATION.md)，不要将已有记录当作每次修改后都已重新执行。
 
 ### 真实账号验收
+
+QQ 公开接口与未扫描二维码可以独立检查，不接入真实账号：
+
+```bash
+LIBITUM_QQ_PUBLIC_SMOKE=1 npx vitest run tests/unit/qqmusic.test.ts
+LIBITUM_QQ_QR_SMOKE=1 npx vitest run tests/unit/qqmusic.test.ts
+```
+
+前者会访问公开目录，仍可能遇到 QQ 业务拒绝或旧歌单 CGI 超时；后者只生成 QQ 音乐 App 二维码、确认本机 MQTT 等待状态并取消，不自动完成登录。普通 `npm test` 会跳过这两项联网检查。
 
 完整账号验收请使用自己的账号在应用内登录完成：收藏及取消一个歌单、一个专辑，在官方客户端核对，再重启检查状态。不要将真实凭证写入自动化脚本或测试样例。模拟收藏流程通过不证明服务端权限、风控或真实同步已通过验收。
 

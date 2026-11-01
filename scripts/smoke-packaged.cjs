@@ -31,6 +31,17 @@ async function main() {
       if (!detail.ok || !detail.data.tracks.length) throw new Error('Packaged public playlist failed')
       report.homeCollections = home.data.collections.length; report.playlistTracks = detail.data.tracks.length
     }
+    if (process.argv.includes('--qq-login')) {
+      const qr = await page.evaluate(() => window.music.invoke('auth.qrStart', { provider: 'qq' }))
+      if (!qr.ok || !qr.data.dataUrl.startsWith('data:image/')) throw new Error('Packaged QQ QR creation failed')
+      try {
+        const status = await page.evaluate(key => window.music.invoke('auth.qrCheck', { provider: 'qq', key }), qr.data.key)
+        if (!status.ok || status.data.state !== 'waiting') throw new Error('Packaged QQ QR waiting state failed')
+        const current = await page.evaluate(() => window.music.invoke('app.bootstrap'))
+        if (!current.ok || current.data.session.user || current.data.session.provider !== 'netease') throw new Error('A pending QQ login changed the active platform')
+        report.qqQrWaiting = true; report.anonymousPlatform = current.data.session.provider
+      } finally { await page.evaluate(key => window.music.invoke('auth.qrCancel', { provider: 'qq', key }), qr.data.key) }
+    }
     console.log(JSON.stringify(report))
   } finally { if (instance) await instance.close(); await fs.rm(directory, { recursive: true, force: true }) }
 }

@@ -16,7 +16,7 @@ export class Player {
   private radioRequest = 0
   private loading: { generation: number; url: string; position: number; paused: boolean } | null = null
   private loaded = false
-  private local: { id: string; stream: Stream } | null = null
+  private local: { id: string; provider: Track['provider']; stream: Stream } | null = null
   private failedIds = new Set<string>()
   private refreshed = new Set<string>()
   private radioLoading: Promise<void> | null = null
@@ -41,7 +41,11 @@ export class Player {
   snapshot(): PlayerState { return structuredClone(this.state) }
   saved(): SavedQueue { return { queue: this.state.queue, index: this.state.index, position: this.state.position, repeat: this.state.repeat } }
   restore(value: SavedQueue) {
-    if (Array.isArray(value.queue)) this.state.queue = value.queue.slice(0, 10000)
+    if (!Array.isArray(value.queue) || value.queue.some(track => track.provider !== value.queue[0]?.provider)) {
+      this.state.queue = []; this.state.index = -1; this.state.position = 0; this.state.duration = 0; this.state.status = 'idle'
+      return
+    }
+    this.state.queue = value.queue.slice(0, 10000)
     this.state.index = Math.min(Math.max(-1, value.index || 0), this.state.queue.length - 1)
     this.state.position = Math.max(0, value.position || 0)
     this.state.duration = (this.current()?.durationMs || 0) / 1000
@@ -131,6 +135,8 @@ export class Player {
   private assertDevice() { if (!this.state.devices.some(device => device.id === this.state.deviceId)) throw new MusicError('DEVICE_MISSING', '请选择可用的输出设备。') }
   async play(tracks: Track[], index = 0, append = false) {
     if (!tracks.length) throw new MusicError('EMPTY', '没有可播放的歌曲。')
+    const provider = tracks[0].provider
+    if (tracks.some(track => track.provider !== provider) || append && this.state.queue.some(track => track.provider !== provider)) throw new MusicError('PLATFORM_MISMATCH', '请在当前音乐平台内选择歌曲，切换平台后重新打开歌单。')
     if (append) {
       this.state.queue.push(...tracks)
       this.state.queue = this.state.queue.slice(0, 10000)
@@ -144,7 +150,7 @@ export class Player {
   }
   async playDownload(task: DownloadTask) {
     this.report(); this.state.radio = null; this.state.queue = [task.track]; this.state.index = 0
-    this.local = { id: task.track.id, stream: { url: task.path!, quality: task.actualQuality || task.quality, bitrate: 0, format: '', size: task.total, trial: false } }
+    this.local = { id: task.track.id, provider: task.track.provider, stream: { url: task.path!, quality: task.actualQuality || task.quality, bitrate: 0, format: '', size: task.total, trial: false } }
     this.failedIds.clear(); this.refreshed.clear()
     await this.load(0)
   }
@@ -157,15 +163,17 @@ export class Player {
     this.changed(true)
     try {
       if (!this.mpv.running) await this.initialize()
+      if (generation !== this.generation) return
       this.assertDevice()
       await this.mpv.command(['set_property', 'pause', true])
       if (generation !== this.generation) return
-      const stream = this.local?.id === track.id ? this.local.stream : await this.backend.call<Stream>('resolve', { id: track.id, quality: this.state.requestedQuality })
+      const stream = this.local?.id === track.id && this.local.provider === track.provider ? this.local.stream : await this.backend.call<Stream>('resolve', { id: track.id, provider: track.provider, quality: this.state.requestedQuality })
       if (generation !== this.generation) return
       this.state.actualQuality = stream.quality; this.state.bitrate = stream.bitrate; this.state.trial = stream.trial
       if (stream.quality && stream.quality !== this.state.requestedQuality) this.state.notice = `当前实际音质：${QUALITIES[stream.quality as Quality] || stream.quality}`
       if (stream.trial) this.state.notice = '当前账号只能播放本歌曲的试听片段。'
       await this.mpv.command(['set_property', 'pause', true])
+      if (generation !== this.generation) return
       await this.mpv.command(['set_property', 'audio-device', this.state.deviceId])
       if (generation !== this.generation) return
       this.loading = { generation, url: stream.url, position, paused }
@@ -191,7 +199,7 @@ export class Player {
       if (event.name === 'time-pos' && typeof event.data === 'number' && Number.isFinite(event.data) && this.loaded) {
         this.lastPositionEvent=Date.now();this.updatePosition(event.data)
       }
-      if (event.name === 'duration' && typeof event.data === 'number') this.state.duration = event.data
+      if (event.name === 'duration' && typeof event.data === 'number' && (this.loaded || this.loading)) this.state.duration = event.data
       if (event.name === 'pause' && typeof event.data === 'boolean' && this.loaded && this.state.status !== 'loading') this.state.status = event.data ? 'paused' : 'playing'
       if (Date.now() - this.lastEmit > 200) { this.lastEmit = Date.now(); this.changed() }
     }
@@ -200,7 +208,9 @@ export class Player {
       const path = await this.mpv.command(['get_property', 'path'])
       if (load !== this.loading || load.generation !== this.generation || path !== load.url) return
       if (load.position > 0) await this.mpv.command(['seek', load.position, 'absolute+exact'])
+      if (load !== this.loading || load.generation !== this.generation) return
       if (this.peqSettings.enabled) await this.applyPeq(this.peqSettings, false)
+      if (load !== this.loading || load.generation !== this.generation) return
       await this.mpv.command(['set_property', 'pause', load.paused])
       if (load.generation !== this.generation) return
       this.loading = null; this.loaded = true; this.failedIds.clear()
@@ -259,6 +269,8 @@ export class Player {
     const generation = this.generation, request = ++this.radioRequest
     const tracks = await this.backend.call<Track[]>('radio', spec)
     if (generation !== this.generation || request !== this.radioRequest) return
+    if (!tracks.length) throw new MusicError('EMPTY', '暂时没有推荐歌曲，请稍后重试。')
+    if (tracks.some(track => track.provider !== tracks[0].provider)) throw new MusicError('PLATFORM_MISMATCH', '推荐结果来自不同音乐平台，请重新打开推荐。')
     this.report(); this.local = null; this.state.radio = spec; this.state.queue = tracks; this.state.index = 0
     this.failedIds.clear(); this.refreshed.clear(); await this.load(0)
   }
@@ -266,20 +278,28 @@ export class Player {
     if (this.radioLoading) return this.radioLoading
     const spec = this.state.radio
     if (!spec) return
-    this.radioLoading = (async () => {
+    const generation = this.generation, provider = this.current()?.provider
+    const loading = (async () => {
       try {
-        const tracks = await this.backend.call<Track[]>('radio', spec)
-        if (this.state.radio !== spec) return
+        const tracks = await this.backend.call<Track[]>('radio', { ...spec, provider })
+        if (this.state.radio !== spec || generation !== this.generation) return
+        if (tracks.some(track => track.provider !== provider)) throw new MusicError('PLATFORM_MISMATCH', '推荐平台已改变，请重新开始漫游。')
         const ids = new Set(this.state.queue.slice(-30).map(track => track.id))
         const fresh = tracks.filter(track => !ids.has(track.id))
         this.state.queue.push(...(fresh.length ? fresh : tracks.filter(track => track.id !== this.current()?.id)))
         if (this.state.queue.length > 300) { const drop = Math.min(this.state.index, this.state.queue.length - 300); this.state.queue.splice(0, drop); this.state.index -= drop }
         this.changed(true)
-      } catch { if (this.state.radio === spec) { this.state.notice = '补充推荐歌曲失败，可点击下一首重试。'; this.changed() } }
-    })().finally(() => { this.radioLoading = null })
-    return this.radioLoading
+      } catch { if (this.state.radio === spec && generation === this.generation) { this.state.notice = '补充推荐歌曲失败，可点击下一首重试。'; this.changed() } }
+    })().finally(() => { if (this.radioLoading === loading) this.radioLoading = null })
+    this.radioLoading = loading
+    return loading
   }
-  async dislike() { if (!this.state.radio || !this.current()) return; await this.backend.call('dislike', { id: this.current()!.id }); await this.next() }
+  async dislike() {
+    const track = this.current(), generation = this.generation
+    if (!this.state.radio || !track) return
+    await this.backend.call('dislike', { id: track.id, provider: track.provider })
+    if (generation === this.generation) await this.next()
+  }
   async remove(index: number) {
     if (index < 0 || index >= this.state.queue.length) return
     if (index === this.state.index) {
@@ -291,16 +311,19 @@ export class Player {
     this.state.queue.splice(index, 1); if (index < this.state.index) this.state.index--; this.changed(true)
   }
   private report() {
-    const id = this.current()?.id, seconds = this.listened
+    const track = this.current(), seconds = this.listened
     this.listened = 0
-    if (id && seconds >= 10 && !this.local) void this.backend.call('scrobble', { id, seconds }).catch(() => {})
+    if (track && seconds >= 10 && !this.local) void this.backend.call('scrobble', { id: track.id, provider: track.provider, seconds }).catch(() => {})
   }
+  /** Clear account-bound playback synchronously before awaiting the mpv stop. */
+  reset() { return this.stop(true) }
   async stop(clear = true) {
     if(this.progressTimer)clearInterval(this.progressTimer);this.progressTimer=null
-    this.report(); this.generation++; this.loading = null; this.loaded = false; this.local = null
-    if (this.mpv.running) await this.mpv.command(['stop']).catch(() => {})
+    this.report(); this.generation++; this.radioRequest++; this.radioLoading = null; this.loading = null; this.loaded = false; this.local = null
     if (clear) this.state.queue = []
-    this.state.index = this.state.queue.length ? 0 : -1; this.state.status = 'idle'; this.state.radio = null; this.state.position = 0; this.state.error = null; this.state.actualQuality = ''; this.changed(true)
+    this.failedIds.clear(); this.refreshed.clear()
+    this.state.index = this.state.queue.length ? 0 : -1; this.state.status = 'idle'; this.state.radio = null; this.state.position = 0; this.state.duration = 0; this.state.error = null; this.state.notice = null; this.state.actualQuality = ''; this.state.bitrate = 0; this.state.trial = false; this.changed(true)
+    if (this.mpv.running) await this.mpv.command(['stop']).catch(() => {})
   }
   async dispose() { if(this.progressTimer)clearInterval(this.progressTimer);this.progressTimer=null;this.generation++; await this.mpv.stop() }
   async restart() { this.generation++; this.loaded = false; this.loading = null; await this.mpv.stop(); if (this.current()) this.state.status = 'paused'; await this.initialize() }

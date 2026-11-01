@@ -249,8 +249,8 @@ test('offers optional wallpaper ink analysis and custom colors and installed fon
   await page.getByLabel('界面字体',{exact:true}).fill(font);await page.getByRole('button',{name:'应用外观',exact:true}).click()
   await page.evaluate(()=>window.music.invoke('settings.update',{visualMode:'cover'}))
   await expect.poll(async()=>{const r=await page.evaluate(()=>window.music.invoke('app.bootstrap'));return r.ok&&[r.data.settings.backgroundColor,r.data.settings.fontColor,r.data.settings.fontFamily,r.data.settings.autoWallpaperText]}).toEqual(['#223344','#f2f5ff',font,false])
-  expect(await page.locator('.app-shell').evaluate(e=>getComputedStyle(e).backgroundColor)).toBe('rgb(34, 51, 68)')
-  expect(await page.locator('.app-shell').evaluate(e=>getComputedStyle(e).fontFamily)).toContain(font)
+  await expect(page.locator('.app-shell')).toHaveCSS('background-color','rgb(34, 51, 68)')
+  await expect.poll(()=>page.locator('.app-shell').evaluate(e=>getComputedStyle(e).fontFamily)).toContain(font)
 })
 test('updates real progress after late input, canceled drags, pause and mini card controls',async()=>{
   await page.getByRole('button',{name:'打开当前歌曲播放详情'}).click()

@@ -1,25 +1,32 @@
 import { MusicError } from '../shared/errors'
 import { QUALITIES, type Command, type Track } from '../shared/types'
 import { validPeq } from '../shared/peq'
+import { isProvider } from '../shared/platforms'
 const commands = new Set<Command>(['app.bootstrap', 'auth.qrStart', 'auth.qrCheck', 'auth.qrCancel', 'auth.importCookie', 'auth.logout', 'catalog.search', 'catalog.detail', 'catalog.allTracks', 'catalog.lyrics', 'catalog.artistAlbums', 'catalog.comments', 'home.section', 'library.list', 'library.like', 'library.subscribe', 'library.subscription', 'library.writablePlaylists', 'library.addToPlaylist', 'library.diagnostics', 'player.play', 'player.toggle', 'player.next', 'player.previous', 'player.seek', 'player.volume', 'player.repeat', 'player.quality', 'player.device', 'player.refreshDevices', 'player.remove', 'player.radio', 'player.dislike', 'downloads.add', 'downloads.cancel', 'downloads.retry', 'downloads.reveal', 'downloads.play', 'settings.fonts', 'settings.update', 'settings.pickDirectory', 'peq.apply', 'peq.import', 'wallpaper.import', 'wallpaper.cancel', 'wallpaper.clear', 'spectrum.subscribe', 'mini.bootstrap', 'mini.like', 'mini.close', 'window.restore', 'app.quit', 'app.openExternal'])
 function assert(value: unknown): asserts value { if (!value) throw new MusicError('INVALID_ARGUMENT', '操作参数无效，请刷新后重试。') }
+commands.add('auth.cancel')
 const text = (v: unknown, max = 512): v is string => typeof v === 'string' && v.length > 0 && v.length <= max
-const id = (v: unknown) => typeof v === 'string' && /^\d{1,24}$/.test(v)
+const id = (v: unknown) => typeof v === 'string' && /^(?:[A-Za-z0-9]{1,128}|top_\d{1,24})$/.test(v)
 const finite = (v: unknown, min: number, max: number) => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max
 const quality = (v: unknown) => typeof v === 'string' && Object.hasOwn(QUALITIES, v)
 export function isTrack(v: any): v is Track {
-  return !!v && v.provider === 'netease' && id(v.id) && text(v.title, 1000) && Array.isArray(v.artists) && v.artists.length <= 100 && v.artists.every((a: any) => a && text(a.name, 1000) && typeof a.id === 'string') && v.album && typeof v.album.id === 'string' && typeof v.album.title === 'string' && typeof v.coverUrl === 'string' && finite(v.durationMs, 0, 86400000)
+  return !!v && isProvider(v.provider) && id(v.id) && (v.provider !== 'netease' || /^\d{1,24}$/.test(v.id)) && text(v.title, 1000) && Array.isArray(v.artists) && v.artists.length <= 100 && v.artists.every((a: any) => a && a.provider === v.provider && text(a.name, 1000) && typeof a.id === 'string') && v.album && typeof v.album.id === 'string' && typeof v.album.title === 'string' && typeof v.coverUrl === 'string' && finite(v.durationMs, 0, 86400000)
 }
 export function validateCommand(command: unknown, args: any): asserts command is Command {
   assert(typeof command === 'string' && commands.has(command as Command))
-  const noArgs = ['app.bootstrap', 'auth.qrStart', 'auth.logout', 'player.toggle', 'player.next', 'player.previous', 'player.refreshDevices', 'player.dislike', 'settings.pickDirectory', 'settings.fonts', 'peq.import', 'wallpaper.import', 'wallpaper.cancel', 'wallpaper.clear', 'mini.bootstrap', 'mini.like', 'mini.close', 'window.restore', 'app.quit', 'library.diagnostics']
+  if (command === 'auth.cancel') { assert(args === undefined || args === null); return }
+  if (command === 'auth.qrStart') { assert(args === undefined || args === null || typeof args === 'object' && !Array.isArray(args) && (args.provider === undefined || isProvider(args.provider))); return }
+  const noArgs = ['app.bootstrap', 'auth.logout', 'player.toggle', 'player.next', 'player.previous', 'player.refreshDevices', 'player.dislike', 'settings.pickDirectory', 'settings.fonts', 'peq.import', 'wallpaper.import', 'wallpaper.cancel', 'wallpaper.clear', 'mini.bootstrap', 'mini.like', 'mini.close', 'window.restore', 'app.quit', 'library.diagnostics']
   if (noArgs.includes(command)) { assert(args === undefined || args === null); return }
   assert(args && typeof args === 'object' && !Array.isArray(args))
   if (['catalog.detail', 'catalog.allTracks', 'catalog.lyrics', 'catalog.comments', 'catalog.artistAlbums', 'library.like', 'library.subscribe', 'library.subscription', 'library.addToPlaylist'].includes(command)) assert(id(args.id))
   if (['catalog.search', 'catalog.detail', 'catalog.comments', 'catalog.artistAlbums', 'library.list', 'library.writablePlaylists'].includes(command)) assert(Number.isInteger(args.offset) && finite(args.offset, 0, 1000000))
   switch (command) {
-    case 'auth.qrCheck': case 'auth.qrCancel': assert(text(args.key, 512)); break
-    case 'auth.importCookie': assert(text(args.cookie, 32768) && !/[\r\n\x00]/.test(args.cookie) && /(?:^|;\s*)MUSIC_U=/.test(args.cookie)); break
+    case 'auth.qrCheck': case 'auth.qrCancel': assert(text(args.key, 512) && (args.provider === undefined || isProvider(args.provider))); break
+    case 'auth.importCookie':
+      assert((args.provider === undefined || isProvider(args.provider)) && text(args.cookie, 32768) && !/[\r\n\x00]/.test(args.cookie))
+      assert(args.provider === 'qq' ? /^qqmusic_session=[A-Za-z0-9_.:-]+$/.test(args.cookie) : /(?:^|;\s*)MUSIC_U=/.test(args.cookie))
+      break
     case 'catalog.search': assert(text(args.keywords, 200) && ['song', 'album', 'artist', 'playlist'].includes(args.kind)); break
     case 'catalog.detail': case 'catalog.allTracks': assert(['album', 'playlist', 'artist'].includes(args.kind)); break
     case 'home.section': assert(['daily', 'recommended', 'charts', 'newAlbums'].includes(args.section)); break
@@ -65,7 +72,7 @@ export function validateCommand(command: unknown, args: any): asserts command is
       assert(text(args.url, 2048))
       let url: URL
       try { url = new URL(args.url) } catch { throw new MusicError('INVALID_ARGUMENT', '网址无效。') }
-      assert(url.protocol === 'https:' && ['music.163.com', 'github.com', 'mpv.io'].includes(url.hostname) && !url.username && !url.password)
+      assert(url.protocol === 'https:' && ['music.163.com', 'y.qq.com', 'github.com', 'mpv.io'].includes(url.hostname) && !url.username && !url.password)
       break
     }
   }

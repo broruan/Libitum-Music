@@ -2,7 +2,7 @@ export const QUALITIES = {
   standard: '标准', higher: '较高', exhigh: '极高', lossless: '无损', hires: 'Hi-Res'
 } as const
 export type Quality = keyof typeof QUALITIES
-export type ProviderId = 'netease'
+export type ProviderId = 'netease' | 'qq'
 export interface ResourceRef { provider: ProviderId; id: string }
 export interface Artist extends ResourceRef { name: string; coverUrl: string }
 export interface Track extends ResourceRef {
@@ -16,7 +16,7 @@ export interface Collection extends ResourceRef {
 export type Album = Collection & { kind: 'album' }
 export type Playlist = Collection & { kind: 'playlist' }
 export interface User { id: string; nickname: string; avatarUrl: string }
-export interface Session { user: User | null; persistent: boolean; message?: string }
+export interface Session { user: User | null; persistent: boolean; provider?: ProviderId; message?: string }
 export interface QRCode { key: string; dataUrl: string }
 export interface QRStatus { state: 'waiting' | 'confirm' | 'expired' | 'success'; session?: Session }
 export type SearchKind = 'song' | 'album' | 'artist' | 'playlist'
@@ -68,11 +68,12 @@ export type Result<T> = { ok: true; data: T } | { ok: false; error: AppError }
 
 export interface CommandMap {
   'app.bootstrap': { args: void; result: Bootstrap }
-  'auth.qrStart': { args: void; result: QRCode }
-  'auth.qrCheck': { args: { key: string }; result: QRStatus }
-  'auth.qrCancel': { args: { key: string }; result: void }
-  'auth.importCookie': { args: { cookie: string }; result: Session }
+  'auth.qrStart': { args: { provider?: ProviderId } | void; result: QRCode }
+  'auth.qrCheck': { args: { key: string; provider?: ProviderId }; result: QRStatus }
+  'auth.qrCancel': { args: { key: string; provider?: ProviderId }; result: void }
+  'auth.importCookie': { args: { cookie: string; provider?: ProviderId }; result: Session }
   'auth.logout': { args: void; result: void }
+  'auth.cancel': { args: void; result: void }
   'catalog.search': { args: { keywords: string; kind: SearchKind; offset: number }; result: SearchResult }
   'catalog.detail': { args: { kind: CollectionKind; id: string; offset: number }; result: Detail }
   'catalog.allTracks': { args: { kind: CollectionKind; id: string }; result: Track[] }

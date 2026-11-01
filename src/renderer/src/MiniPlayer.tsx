@@ -24,7 +24,7 @@ export function MiniPlayer(){
   },[])
   const run=async(action:Promise<unknown>)=>{setBusy(true);setError('');try{await action}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
   const track=state?.track
-  const progress=usePlaybackSeek(state?.position||0,state?.duration||0,`${track?.id||''}:${state?.status==='loading'}`,seconds=>run(request('player.seek',{seconds})))
+  const progress=usePlaybackSeek(state?.position||0,state?.duration||0,`${track?.provider||''}:${track?.id||''}:${state?.status==='loading'}`,seconds=>run(request('player.seek',{seconds})))
   return <div className="mini-player" style={appearance.style}>
     <div className="mini-background" style={{opacity:settings.floatingOpacity}} aria-hidden="true"><WallpaperBackground settings={settings} status={state?.status||'idle'} active={wallpaperActive} onPalette={setPalette}/></div>
     <div className="mini-content">
